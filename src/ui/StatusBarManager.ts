@@ -2,15 +2,32 @@ import * as vscode from 'vscode';
 import { PomodoroSession, PomodoroState } from '../types';
 
 export class StatusBarManager {
-  private statusBarItem: vscode.StatusBarItem;
+  private mainStatusBarItem: vscode.StatusBarItem;
+  private settingsButtonItem: vscode.StatusBarItem;
 
   constructor() {
-    this.statusBarItem = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Right,
+    // Create two status bar items positioned together on the left for better visibility
+    this.mainStatusBarItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Left,
+      101
+    );
+    this.settingsButtonItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Left,
       100
     );
-    this.statusBarItem.command = 'pomodoro.start';
-    this.statusBarItem.show();
+
+    // Set commands
+    this.mainStatusBarItem.command = 'pomodoro.toggleTimer';
+    this.settingsButtonItem.command = 'pomodoro.openPanel';
+
+    // Set button text and tooltip
+    this.settingsButtonItem.text = '⚙️';
+    this.settingsButtonItem.tooltip = 'Open Pomodoro panel';
+
+    // Show all items
+    this.mainStatusBarItem.show();
+    this.settingsButtonItem.show();
+
     this.updateStatusBar({
       state: PomodoroState.IDLE,
       timeRemaining: 25 * 60 * 1000,
@@ -26,43 +43,48 @@ export class StatusBarManager {
       .toString()
       .padStart(2, '0')}`;
 
-    let icon = '⏱️';
-    let text = timeString;
-    let tooltip = 'Pomodoro Timer - Click to start';
+    let icon = '🍅';
+    let sessionName = '';
+    let tooltip = 'Click to start timer';
+
+    console.log(session);
 
     switch (session.state) {
       case PomodoroState.WORK:
         icon = '🍅';
+        sessionName = 'Working';
         tooltip = 'Working - Click to pause';
-        this.statusBarItem.command = 'pomodoro.pause';
         break;
       case PomodoroState.SHORT_BREAK:
         icon = '☕';
+        sessionName = 'Short Break';
         tooltip = 'Short break - Click to pause';
-        this.statusBarItem.command = 'pomodoro.pause';
         break;
       case PomodoroState.LONG_BREAK:
         icon = '🛌';
+        sessionName = 'Long Break';
         tooltip = 'Long break - Click to pause';
-        this.statusBarItem.command = 'pomodoro.pause';
         break;
       case PomodoroState.PAUSED:
         icon = '⏸️';
+        sessionName = 'Pause';
         tooltip = 'Paused - Click to resume';
-        this.statusBarItem.command = 'pomodoro.start';
         break;
       case PomodoroState.IDLE:
-        icon = '⏱️';
-        tooltip = 'Ready to start - Click to begin';
-        this.statusBarItem.command = 'pomodoro.start';
+        icon = '▶️';
+        sessionName = 'Start';
+        tooltip = 'Click to start Pomodoro';
         break;
     }
 
-    this.statusBarItem.text = `${icon} ${text}`;
-    this.statusBarItem.tooltip = `${tooltip} | Completed: ${session.completedPomodoros}`;
+    const fullText = `${icon} ${sessionName} ${timeString} - Ticket 0003`;
+    this.mainStatusBarItem.text =
+      fullText.length > 30 ? fullText.substring(0, 27) + '...' : fullText;
+    this.mainStatusBarItem.tooltip = `${tooltip} | Completed: ${session.completedPomodoros}`;
   }
 
   dispose(): void {
-    this.statusBarItem.dispose();
+    this.mainStatusBarItem.dispose();
+    this.settingsButtonItem.dispose();
   }
 }

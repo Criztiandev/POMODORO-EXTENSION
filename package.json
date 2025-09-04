@@ -34,8 +34,40 @@
         "command": "pomodoro.skip",
         "title": "Skip Current Session",
         "category": "Pomodoro"
+      },
+      {
+        "command": "pomodoro.openPanel",
+        "title": "Open Pomodoro Panel",
+        "category": "Pomodoro"
+      },
+      {
+        "command": "pomodoro.toggleTimer",
+        "title": "Toggle Timer",
+        "category": "Pomodoro"
       }
-    ]
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "pomodoro.start"
+        },
+        {
+          "command": "pomodoro.pause"
+        },
+        {
+          "command": "pomodoro.reset"
+        },
+        {
+          "command": "pomodoro.skip"
+        },
+        {
+          "command": "pomodoro.openPanel"
+        },
+        {
+          "command": "pomodoro.toggleTimer"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

@@ -27,11 +27,17 @@ export class PomodoroTimer extends EventEmitter {
 
   start(): void {
     if (this.session.state === PomodoroState.IDLE) {
+      // First time starting - always go to work
       this.session.state = PomodoroState.WORK;
       this.session.timeRemaining = this.config.workDuration;
       this.session.totalTime = this.config.workDuration;
     } else if (this.session.state === PomodoroState.PAUSED) {
-      this.session.state = this.getPreviousState();
+      // Resuming from pause - determine what state to resume to
+      if (this.session.completedPomodoros === 0) {
+        this.session.state = PomodoroState.WORK;
+      } else {
+        this.session.state = this.getPreviousState();
+      }
     }
 
     this.startTimer();
@@ -54,7 +60,7 @@ export class PomodoroTimer extends EventEmitter {
     }
 
     this.session = {
-      state: PomodoroState.IDLE,
+      state: PomodoroState.PAUSED,
       timeRemaining: this.config.workDuration,
       totalTime: this.config.workDuration,
       completedPomodoros: this.session.completedPomodoros,
@@ -69,7 +75,7 @@ export class PomodoroTimer extends EventEmitter {
       this.timer = null;
     }
 
-    this.handleSessionComplete();
+    this.handleSessionSkip();
   }
 
   getSession(): PomodoroSession {
@@ -114,9 +120,37 @@ export class PomodoroTimer extends EventEmitter {
       this.session.totalTime = this.config.workDuration;
     }
 
+    // Set to paused after session completes - user must click to continue
+    this.session.state = PomodoroState.PAUSED;
     this.emit('sessionComplete', this.session);
     this.emit('stateChanged', this.session);
-    this.startTimer();
+  }
+
+  private handleSessionSkip(): void {
+    if (this.session.state === PomodoroState.WORK) {
+      this.session.completedPomodoros++;
+      const isLongBreak =
+        this.session.completedPomodoros %
+          this.config.pomodorosBeforeLongBreak ===
+        0;
+
+      this.session.state = isLongBreak
+        ? PomodoroState.LONG_BREAK
+        : PomodoroState.SHORT_BREAK;
+      this.session.timeRemaining = isLongBreak
+        ? this.config.longBreakDuration
+        : this.config.shortBreakDuration;
+      this.session.totalTime = this.session.timeRemaining;
+    } else {
+      this.session.state = PomodoroState.WORK;
+      this.session.timeRemaining = this.config.workDuration;
+      this.session.totalTime = this.config.workDuration;
+    }
+
+    // After skip, return to start state (IDLE shows "Start")
+    this.session.state = PomodoroState.IDLE;
+    this.emit('sessionComplete', this.session);
+    this.emit('stateChanged', this.session);
   }
 
   private getPreviousState(): PomodoroState {
