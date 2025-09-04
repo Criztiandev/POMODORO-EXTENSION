@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { PomodoroSession, PomodoroState } from '../types';
+import { PomodoroSession, PomodoroState, SessionType } from '../types';
 
 export class StatusBarManager {
   private mainStatusBarItem: vscode.StatusBarItem;
@@ -30,6 +30,7 @@ export class StatusBarManager {
 
     this.updateStatusBar({
       state: PomodoroState.IDLE,
+      sessionType: SessionType.WORK,
       timeRemaining: 25 * 60 * 1000,
       totalTime: 25 * 60 * 1000,
       completedPomodoros: 0,

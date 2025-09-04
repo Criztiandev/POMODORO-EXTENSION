@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Timer</title>
+    <style>
+        body {
+            font-family: var(--vscode-font-family);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-editor-background);
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: var(--vscode-titleBar-activeForeground);
+            margin: 0;
+        }
+        .settings-btn {
+            background: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .settings-btn:hover {
+            background: var(--vscode-button-secondaryHoverBackground);
+        }
+        .timer-display {
+            font-size: 4rem;
+            font-weight: bold;
+            margin: 40px 0;
+            color: var(--vscode-foreground);
+        }
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+            border-bottom: 2px solid var(--vscode-panel-border);
+        }
+        .tab {
+            background: none;
+            border: none;
+            padding: 12px 24px;
+            cursor: pointer;
+            color: var(--vscode-descriptionForeground);
+            font-size: 14px;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab.active {
+            color: var(--vscode-foreground);
+            border-bottom-color: var(--vscode-focusBorder);
+        }
+        .tab:hover {
+            color: var(--vscode-foreground);
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 40px;
+        }
+        .control-btn {
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            min-width: 100px;
+        }
+        .control-btn:hover {
+            background: var(--vscode-button-hoverBackground);
+        }
+        .control-btn.secondary {
+            background: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+        }
+        .control-btn.secondary:hover {
+            background: var(--vscode-button-secondaryHoverBackground);
+        }
+        .control-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .control-btn.disabled:hover {
+            background: var(--vscode-button-secondaryBackground);
+        }
+        .session-info {
+            margin-top: 20px;
+            color: var(--vscode-descriptionForeground);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍅 Pomodoro Timer</h1>
+            <button class="settings-btn" onclick="showSettings()">⚙️ Settings</button>
+        </div>
+        
+        <div class="timer-display"><%= timeString %></div>
+        
+        <div class="tabs">
+            <button class="tab <%= sessionType === 'work' ? 'active' : '' %>" onclick="selectTab('work')">
+                🍅 Working
+            </button>
+            <button class="tab <%= sessionType === 'shortBreak' ? 'active' : '' %>" onclick="selectTab('shortBreak')">
+                ☕ Short Break
+            </button>
+            <button class="tab <%= sessionType === 'longBreak' ? 'active' : '' %>" onclick="selectTab('longBreak')">
+                🛌 Long Break
+            </button>
+        </div>
+        
+        <div class="controls">
+            <button class="control-btn" onclick="toggleTimer()"><%= buttonText %></button>
+            <button class="control-btn secondary <%= isTimerActive ? '' : 'disabled' %>" onclick="skip()" <%= isTimerActive ? '' : 'disabled' %>>Skip</button>
+        </div>
+        
+        <div class="session-info">
+            Completed Pomodoros: <%= completedPomodoros %>
+        </div>
+    </div>
+    
+    <script>
+        const vscode = acquireVsCodeApi();
+        
+        function toggleTimer() {
+            vscode.postMessage({ command: 'toggleTimer' });
+        }
+        
+        function skip() {
+            vscode.postMessage({ command: 'skip' });
+        }
+        
+        function showSettings() {
+            vscode.postMessage({ command: 'showSettings' });
+        }
+        
+        function selectTab(type) {
+            vscode.postMessage({ 
+                command: 'switchSession', 
+                sessionType: type 
+            });
+        }
+        
+        function formatTime(milliseconds) {
+            const minutes = Math.floor(milliseconds / 60000);
+            const seconds = Math.floor((milliseconds % 60000) / 1000);
+            return minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0');
+        }
+        
+        function updateUI(session, isTimerActive = false) {
+            // Update timer display
+            const timerDisplay = document.querySelector('.timer-display');
+            if (timerDisplay) {
+                timerDisplay.textContent = formatTime(session.timeRemaining);
+            }
+            
+            // Update tabs active state - use sessionType instead of state
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            if (session.sessionType === 'work') {
+                document.querySelector('.tab:nth-child(1)').classList.add('active');
+            } else if (session.sessionType === 'shortBreak') {
+                document.querySelector('.tab:nth-child(2)').classList.add('active');
+            } else if (session.sessionType === 'longBreak') {
+                document.querySelector('.tab:nth-child(3)').classList.add('active');
+            }
+            
+            // Update button text - fix the logic for skip vs pause
+            const controlBtn = document.querySelector('.control-btn');
+            if (controlBtn) {
+                let buttonText;
+                if (session.state === 'idle') {
+                    buttonText = 'Start';
+                } else if (isTimerActive) {
+                    buttonText = 'Pause';
+                } else if (session.state === 'paused') {
+                    // Check if we just skipped or truly paused
+                    // After skip, we want "Start", after pause we want "Resume"
+                    // We'll determine this by checking if timer was just skipped
+                    buttonText = 'Start'; // Always show Start after skip/pause for now
+                } else {
+                    buttonText = 'Start';
+                }
+                controlBtn.textContent = buttonText;
+            }
+            
+            // Update skip button state
+            const skipBtn = document.querySelector('.control-btn.secondary');
+            if (skipBtn) {
+                if (isTimerActive) {
+                    skipBtn.classList.remove('disabled');
+                    skipBtn.removeAttribute('disabled');
+                } else {
+                    skipBtn.classList.add('disabled');
+                    skipBtn.setAttribute('disabled', 'true');
+                }
+            }
+            
+            // Update session info
+            const sessionInfo = document.querySelector('.session-info');
+            if (sessionInfo) {
+                sessionInfo.textContent = 'Completed Pomodoros: ' + session.completedPomodoros;
+            }
+        }
+        
+        // Listen for messages from extension
+        window.addEventListener('message', event => {
+            const message = event.data;
+            if (message.command === 'updateSession') {
+                updateUI(message.session, message.isTimerActive);
+            }
+        });
+    </script>
+</body>
+</html>
