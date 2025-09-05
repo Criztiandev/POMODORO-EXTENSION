@@ -2,7 +2,7 @@
   "name": "your-pomodoro",
   "displayName": "Your Pomodoro",
   "description": "A simple and effective Pomodoro timer for VS Code to boost your productivity",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "criztiandev",
   "icon": "your-pomodoro.logo.png",
   "repository": {
