@@ -3,6 +3,7 @@
   "displayName": "Your Pomodoro",
   "description": "A simple and effective Pomodoro timer for VS Code to boost your productivity",
   "version": "0.0.1",
+  "publisher": "criztiandev",
   "engines": {
     "vscode": "^1.103.0"
   },
@@ -117,6 +118,78 @@
           "type": "boolean",
           "default": true,
           "description": "Enable notifications when sessions complete"
+        },
+        "pomodoroTimer.panelPosition": {
+          "type": "string",
+          "enum": ["left", "right"],
+          "default": "left",
+          "description": "Position of the timer panel in the status bar"
+        },
+        "pomodoroTimer.notificationType": {
+          "type": "string",
+          "enum": ["notification", "modal"],
+          "default": "notification",
+          "description": "Type of notification to show when sessions complete"
+        },
+        "pomodoroTimer.pomodoroTodos": {
+          "type": "object",
+          "default": {
+            "tasks": [],
+            "currentTaskId": null
+          },
+          "description": "Pomodoro todo list state and tasks",
+          "properties": {
+            "tasks": {
+              "type": "array",
+              "description": "List of todo tasks",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "Unique task identifier"
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Task title"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Task description"
+                  },
+                  "estimatedPomodoros": {
+                    "type": "number",
+                    "description": "Estimated pomodoros needed"
+                  },
+                  "estimatedMinutes": {
+                    "type": "number", 
+                    "description": "Estimated minutes needed"
+                  },
+                  "completed": {
+                    "type": "boolean",
+                    "description": "Whether task is completed"
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "description": "Task creation timestamp (ISO string)"
+                  },
+                  "completedAt": {
+                    "type": "string",
+                    "description": "Task completion timestamp (ISO string)"
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": ["low", "medium", "high"],
+                    "description": "Task priority level"
+                  }
+                }
+              }
+            },
+            "currentTaskId": {
+              "type": ["string", "null"],
+              "description": "ID of currently selected task"
+            }
+          }
         }
       }
     }

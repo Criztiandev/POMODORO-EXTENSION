@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pomodoro Timer</title>
+  <link rel="stylesheet" href="<%= styleUri %>">
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h1> 🍅 Pomodoro Timer</h1>
+      <button class="settings-btn" onclick="showSettings()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings-icon lucide-settings" style="width: 18px; height: 18px;">
+          <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+        Settings
+      </button>
+    </div>
+
+    <div class="timer-display">
+      <%= timeString %>
+    </div>
+
+    <% if (currentTask) { %>
+    <div class="working-on-display" style="text-align: center; margin-top: -10px; margin-bottom: 20px; font-size: 14px; color: var(--vscode-descriptionForeground);">
+      Working on: <span style="color: var(--vscode-focusBorder); font-weight: bold;">
+        <%= currentTask.title %>
+      </span>
+    </div>
+    <% } %>
+
+    <div class="tabs">
+      <button class="tab <%= sessionType === 'work' ? 'active' : '' %>" onclick="selectTab('work')">
+        <!-- Case Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-briefcase-business-icon lucide-briefcase-business">
+          <path d="M12 12h.01" />
+          <path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+          <path d="M22 13a18.15 18.15 0 0 1-20 0" />
+          <rect width="20" height="14" x="2" y="6" rx="2" />
+        </svg>
+        Working
+      </button>
+      <button class="tab <%= sessionType === 'shortBreak' ? 'active' : '' %>" onclick="selectTab('shortBreak')">
+        <!-- Coffee Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-coffee-icon lucide-coffee">
+          <path d="M10 2v2" />
+          <path d="M14 2v2" />
+          <path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1" />
+          <path d="M6 2v2" />
+        </svg>
+        Short Break
+      </button>
+      <button class="tab <%= sessionType === 'longBreak' ? 'active' : '' %>" onclick="selectTab('longBreak')">
+        <!-- Coffee Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-tree-palm-icon lucide-tree-palm">
+          <path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4" />
+          <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3" />
+          <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35" />
+          <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14" />
+        </svg>
+        Long Break
+      </button>
+    </div>
+
+    <div class="controls">
+      <button class="control-btn" onclick="toggleTimer()">
+        <!-- Play Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play-icon lucide-play">
+          <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
+        </svg>
+        <%= buttonText %>
+      </button>
+      <% if (isTimerActive) { %>
+      <button class="control-btn secondary <%= isTimerActive ? '' : 'disabled' %>" onclick="skip()" <%=isTimerActive
+            ? '' : 'disabled' %>>
+        <!-- Skip Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-skip-forward-icon lucide-skip-forward">
+          <path d="M21 4v16" />
+          <path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z" />
+        </svg>
+        Skip
+      </button>
+      <% } %>
+    </div>
+
+    <div class="session-info" style="margin-bottom: 32px;">
+      Completed Pomodoros: <%= completedPomodoros %>
+    </div>
+
+    <!-- Todo Section -->
+    <div class="todo-section">
+
+
+      <div class="task-list" id="taskList">
+        <% if (todoState.tasks && todoState.tasks.length> 0) { %>
+        <% todoState.tasks.forEach(task=> { %>
+        <div class="task-item <%= task.completed ? 'completed' : '' %> <%= task.id === todoState.currentTaskId ? 'current' : '' %>" data-task-id="<%= task.id %>" onclick="selectTask('<%= task.id %>')">
+          <div class="task-main" style="display: flex; gap: 16px;">
+
+            <label class="circle-checkbox-container" onclick="event.stopPropagation()">
+              <input type="checkbox" class=" hidden-checkbox" <%=task.completed ? 'checked' : '' %> onchange="toggleTask('<%= task.id %>', this.checked)">
+              <span class="checkmark"></span>
+            </label>
+
+            <div class="task-content">
+              <div class="task-title <%= task.completed ? 'completed' : '' %>">
+                <%= task.title %>
+              </div>
+              <% if (task.description) { %>
+              <div class="task-description" style="font-weight: 400;">
+                <%= task.description %>
+              </div>
+              <% } %>
+              <% if (task.estimatedPomodoros || task.estimatedMinutes) { %>
+              <div class="task-meta">
+                <% if (task.estimatedPomodoros) { %>
+                <%= task.estimatedPomodoros %> pomodoros <% } %>
+                <% if (task.estimatedMinutes) { %>
+                <%= pomodoroIcon %>
+                <%= task.estimatedMinutes %> min <% } %>
+              </div>
+              <% } %>
+            </div>
+          </div>
+
+
+          <div class="task-actions">
+            <button class="task-action-btn" onclick="event.stopPropagation(); deleteTask('<%= task.id %>')" title="Delete Task">
+              <%- trashIcon %>
+            </button>
+          </div>
+        </div>
+        <% }); %>
+        <% } else { %>
+        <div class="empty-state">
+          <%- targetIcon %> No tasks yet. Create your first task to get started!</div>
+        <% } %>
+      </div>
+
+      <button class="create-task-btn" onclick="showCreateTaskModal()" style="margin-bottom: 32px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-plus-icon lucide-circle-plus" style="width: 24px; height: 24px;">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M8 12h8" />
+          <path d="M12 8v8" />
+        </svg>
+        Add New Task
+      </button>
+
+      <% if (todoState.tasks && todoState.tasks.length> 0) { %>
+      <div class="todo-actions">
+        <span class="todo-action-link" onclick="clearCompletedTasks()">Clear Completed</span>
+        <span class="todo-action-link" onclick="clearAllTasks()">Clear All</span>
+      </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Task Creation Modal -->
+  <div class="modal-overlay" id="createTaskModal" style="display: none;">
+    <div class="modal" style="padding: 16px; border-radius: 4px;">
+      <h3>Create New Task</h3>
+      <form id="createTaskForm">
+        <div class="form-group">
+          <label class="form-label" for="taskTitle">
+            Title <span style="color: var(--vscode-errorForeground);">*</span>
+          </label>
+          <input type="text" id="taskTitle" class="form-input" maxlength="100" placeholder="Enter Task Title" required>
+          <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 2px;">
+            <span id="titleCounter">0</span>/100 characters
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="taskDescription">Description</label>
+          <textarea id="taskDescription" class="form-input form-textarea" placeholder="Optional task details..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="taskEstimate">Time Estimate</label>
+          <select id="taskEstimateType" class="form-input" style="margin-bottom: 8px;">
+            <option value="none">No estimate</option>
+            <option value="pomodoros">Pomodoros (25 min each)</option>
+            <option value="minutes">Custom minutes</option>
+          </select>
+          <input type="number" id="taskEstimateValue" class="form-input" style="display: none;" min="1" max="480">
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" onclick="hideCreateTaskModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-x-icon lucide-circle-x" style="width: 24px; height: 24px;">
+              <circle cx="12" cy="12" r="10" />
+              <path d="m15 9-6 6" />
+              <path d="m9 9 6 6" />
+            </svg>
+            Cancel
+          </button>
+          <button type="submit" class="btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-plus-icon lucide-circle-plus" style="width: 24px; height: 24px;">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M8 12h8" />
+              <path d="M12 8v8" />
+            </svg>
+            Create
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="<%= scriptUri %>"></script>
+</body>
+
+</html>

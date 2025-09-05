@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { PomodoroSettings } from '../types';
+import { PomodoroSettings } from '../types/settings.interface';
 
 export class SettingsManager {
   private static readonly SETTINGS_KEY = 'pomodoroTimer';
@@ -9,7 +9,8 @@ export class SettingsManager {
     shortBreakDuration: 5,
     longBreakDuration: 15,
     hourFormat: true,
-    notificationEnabled: true
+    notificationEnabled: true,
+    panelPosition: 'left'
   };
 
   static getSettings(): PomodoroSettings {
@@ -20,7 +21,8 @@ export class SettingsManager {
       shortBreakDuration: config.get('shortBreakDuration', this.defaultSettings.shortBreakDuration),
       longBreakDuration: config.get('longBreakDuration', this.defaultSettings.longBreakDuration),
       hourFormat: config.get('hourFormat', this.defaultSettings.hourFormat),
-      notificationEnabled: config.get('notificationEnabled', this.defaultSettings.notificationEnabled)
+      notificationEnabled: config.get('notificationEnabled', this.defaultSettings.notificationEnabled),
+      panelPosition: config.get('panelPosition', this.defaultSettings.panelPosition)
     };
   }
 
@@ -54,23 +56,19 @@ export class SettingsManager {
 
   static async updateSettings(settings: Partial<PomodoroSettings>): Promise<void> {
     try {
-      console.log('SettingsManager: Updating settings', settings);
 
       const validation = this.validateSettings(settings);
       if (!validation.isValid) {
         const errorMessage = `Invalid settings: ${validation.errors.join(', ')}`;
-        console.error('SettingsManager: Validation failed', errorMessage);
         throw new Error(errorMessage);
       }
 
       const config = vscode.workspace.getConfiguration(this.SETTINGS_KEY);
       
       for (const [key, value] of Object.entries(settings)) {
-        console.log(`SettingsManager: Setting ${key} = ${value}`);
         await config.update(key, value, vscode.ConfigurationTarget.Global);
       }
 
-      console.log('SettingsManager: Settings updated successfully');
     } catch (error) {
       console.error('SettingsManager: Failed to update settings', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
