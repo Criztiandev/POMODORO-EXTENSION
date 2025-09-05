@@ -2,9 +2,9 @@
   "name": "your-pomodoro",
   "displayName": "Your Pomodoro",
   "description": "A simple and effective Pomodoro timer for VS Code to boost your productivity",
-  "version": "0.0.1",
+  "version": "0.1.1",
   "publisher": "criztiandev",
-  "icon": "src/assets/logo/your-pomodoro.logo.png",
+  "icon": "your-pomodoro.logo.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/Criztiandev/Your-Pomodoro"
@@ -19,6 +19,11 @@
     "onStartupFinished"
   ],
   "main": "./dist/extension.js",
+  "files": [
+    "dist/",
+    "src/components/",
+    "your-pomodoro.logo.png"
+  ],
   "contributes": {
     "commands": [
       {
@@ -213,7 +218,15 @@
     "lint": "eslint src --fix",
     "format": "prettier --write .",
     "prepare": "husky",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "version:patch": "npm version patch",
+    "version:minor": "npm version minor", 
+    "version:major": "npm version major",
+    "deploy": "npm run package && vsce publish && npm run release",
+    "deploy:patch": "npm run version:patch && npm run deploy",
+    "deploy:minor": "npm run version:minor && npm run deploy", 
+    "deploy:major": "npm run version:major && npm run deploy",
+    "release": "gh release create v$npm_package_version --generate-notes --latest"
   },
   "lint-staged": {
     "*.{ts,js,json,md}": [
@@ -231,6 +244,7 @@
     "@typescript-eslint/parser": "^8.42.0",
     "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.2.1",
     "esbuild": "^0.25.8",
     "eslint": "^9.32.0",
     "husky": "^9.1.7",
