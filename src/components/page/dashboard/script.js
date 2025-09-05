@@ -281,9 +281,17 @@ async function deleteTask(taskId) {
 }
 
 function clearCompletedTasks() {
-  vscode.postMessage({
-    command: 'clearCompletedTasks',
-  });
+  // Check if there are completed tasks before showing confirmation
+  const completedTasks = document.querySelectorAll('.task-item.completed');
+  if (completedTasks.length === 0) {
+    return; // No completed tasks to clear
+  }
+
+  if (confirm('Are you sure you want to clear all completed tasks?')) {
+    vscode.postMessage({
+      command: 'clearCompletedTasks',
+    });
+  }
 }
 
 function clearAllTasks() {
@@ -488,9 +496,7 @@ function hideAllTasksCompletedUI() {
 }
 
 function clearAllCompletedTasks() {
-  if (confirm('Are you sure you want to clear all completed tasks?')) {
-    vscode.postMessage({ command: 'clearCompletedTasks' });
-  }
+  clearCompletedTasks(); // Use the standardized function
 }
 
 function startFresh() {
@@ -703,9 +709,23 @@ window.addEventListener('message', (event) => {
   } else if (message.command === 'tasksCleared') {
     // Handle clearing of completed tasks - force refresh
     console.log('Handling tasksCleared event:', message.type);
+    
+    // Remove completed tasks from DOM immediately
+    const completedTasks = document.querySelectorAll('.task-item.completed');
+    completedTasks.forEach(taskElement => {
+      taskElement.remove();
+    });
+    
+    // Update task list and UI state
+    taskRenderer.checkForEmptyState();
+    taskRenderer.updateTodoActionsVisibility();
+    
     // Force refresh by clearing previous state and updating
     previousState = { currentTaskId: null, taskCount: 0, tasksHash: '' };
     updateTodoUI(message.todoState);
+    
+    // Hide the completion banner if it exists
+    hideAllTasksCompletedUI();
   } else if (message.command === 'cleanup') {
     cleanupManager.cleanup();
     messageHandler.cleanup();
