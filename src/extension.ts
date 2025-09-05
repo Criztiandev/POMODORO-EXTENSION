@@ -71,30 +71,15 @@ export function activate(context: vscode.ExtensionContext) {
       }
     }
 
-    // Show notification based on user preference
-    if (settings.notificationType === 'modal') {
-      // Show modal dialog
-      vscode.window.showInformationMessage(
-        `${message} Would you like to start the ${nextState}?`,
-        { modal: true },
-        'Start Session',
-        'Later'
-      ).then(selection => {
-        if (selection === 'Start Session') {
-          vscode.commands.executeCommand('pomodoro.start');
-        }
-      });
-    } else {
-      // Show system notification (default)
-      vscode.window.showInformationMessage(
-        `${message} Click to start ${nextState}`,
-        'Start Session'
-      ).then(selection => {
-        if (selection === 'Start Session') {
-          vscode.commands.executeCommand('pomodoro.start');
-        }
-      });
-    }
+    // Show system notification
+    vscode.window.showInformationMessage(
+      `${message} Click to start ${nextState}`,
+      'Start Session'
+    ).then(selection => {
+      if (selection === 'Start Session') {
+        vscode.commands.executeCommand('pomodoro.start');
+      }
+    });
   });
 
   pomodoroTimer.on('sessionSkipped', (session: PomodoroSession) => {

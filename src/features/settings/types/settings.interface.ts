@@ -5,5 +5,4 @@ export interface PomodoroSettings {
   hourFormat: boolean; // true for 24h, false for 12h
   notificationEnabled: boolean;
   panelPosition: 'left' | 'right'; // status bar panel position
-  notificationType: 'notification' | 'modal'; // notification display type
 }

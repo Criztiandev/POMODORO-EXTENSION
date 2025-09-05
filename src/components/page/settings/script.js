@@ -13,8 +13,7 @@ document.getElementById('settingsForm').addEventListener('submit', function(e) {
         longBreakDuration: parseInt(document.getElementById('longBreakDuration').value),
         hourFormat: document.getElementById('hourFormat').checked,
         notificationEnabled: document.getElementById('notificationEnabled').checked,
-        panelPosition: document.querySelector('input[name="panelPosition"]:checked').value,
-        notificationType: document.querySelector('input[name="notificationType"]:checked').value
+        panelPosition: document.querySelector('input[name="panelPosition"]:checked').value
     };
     
     vscode.postMessage({ 
