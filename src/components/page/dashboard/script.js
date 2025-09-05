@@ -174,10 +174,6 @@ function handleModalOverlayClick(event) {
 // ===== Todo/Task Management Module ======================================
 // =========================================================================
 
-// Debounce mechanism for task selection to prevent rapid clicks
-let selectTaskTimeout = null;
-let isProcessingSelection = false;
-
 async function toggleTask(taskId, completed) {
   console.log('toggleTask called with:', taskId, completed);
 
@@ -202,81 +198,61 @@ async function toggleTask(taskId, completed) {
   }
 }
 
-async function selectTask(taskId) {
+function selectTask(taskId) {
   console.log('selectTask called with:', taskId);
-  if (isProcessingSelection) {
+  
+  // Check if clicking on already selected task should deselect it
+  const selectedItem = document.querySelector(`[data-task-id="${taskId}"]`);
+
+  // Add null check for selectedItem
+  if (!selectedItem) {
+    console.error('No element found with data-task-id:', taskId);
     return;
   }
 
-  // Set processing flag immediately for instant feedback
-  isProcessingSelection = true;
+  const isCurrentlySelected = selectedItem.classList.contains('current');
 
-  try {
-      // Check if clicking on already selected task should deselect it
-      const selectedItem = document.querySelector(`[data-task-id="${taskId}"]`);
+  console.log('taskId:', taskId, 'isCurrentlySelected:', isCurrentlySelected);
 
-      // Add null check for selectedItem
-      if (!selectedItem) {
-        console.error('No element found with data-task-id:', taskId);
-        return;
-      }
-
-      const isCurrentlySelected = selectedItem.classList.contains('current');
-
-      console.log('taskId:', taskId);
-      console.log('isCurrentlySelected:', isCurrentlySelected);
-      console.log('selectedItem:', selectedItem);
-
-      if (!isCurrentlySelected) {
-        // INSTANT optimistic update - no delay
-        taskRenderer.selectTaskInDOM(taskId);
-        
-        // Update current task display immediately
-        const taskElement = selectedItem;
-        const titleElement = taskElement.querySelector('.task-title');
-        const descElement = taskElement.querySelector('.task-description');
-        
-        const currentTask = {
-          id: taskId,
-          title: titleElement?.textContent || '',
-          description: descElement?.textContent || ''
-        };
-        updateCurrentTaskDisplay(currentTask);
-        
-        // Background sync with server
-        try {
-          await messageHandler.sendRequest('setCurrentTask', { taskId });
-        } catch (error) {
-          console.error('Failed to select task:', error);
-          // Rollback on error
-          taskRenderer.selectTaskInDOM(null);
-          updateCurrentTaskDisplay(null);
-        }
-      } else {
-        // INSTANT deselect - no delay
-        taskRenderer.selectTaskInDOM(null);
-        updateCurrentTaskDisplay(null);
-        
-        // Background sync with server
-        try {
-          await messageHandler.sendRequest('clearCurrentTask');
-        } catch (error) {
-          console.error('Failed to clear current task:', error);
-          // Rollback on error
-          taskRenderer.selectTaskInDOM(taskId);
-          const currentTask = {
-            id: taskId,
-            title: selectedItem.querySelector('.task-title')?.textContent || '',
-            description: selectedItem.querySelector('.task-description')?.textContent || ''
-          };
-          updateCurrentTaskDisplay(currentTask);
-        }
-      }
-  } finally {
-    // Reset processing flag after a short delay
-    setTimeout(() => {
-      isProcessingSelection = false;
-    }, 100);
+  if (!isCurrentlySelected) {
+    // INSTANT optimistic update - no delays, no blocking
+    taskRenderer.selectTaskInDOM(taskId);
+    
+    // Update current task display immediately
+    const titleElement = selectedItem.querySelector('.task-title');
+    const descElement = selectedItem.querySelector('.task-description');
+    
+    const currentTask = {
+      id: taskId,
+      title: titleElement?.textContent || '',
+      description: descElement?.textContent || ''
+    };
+    updateCurrentTaskDisplay(currentTask);
+    
+    // Background sync with server (no await - fire and forget)
+    messageHandler.sendRequest('setCurrentTask', { taskId }).catch(error => {
+      console.error('Failed to select task:', error);
+      // Rollback on error
+      taskRenderer.selectTaskInDOM(null);
+      updateCurrentTaskDisplay(null);
+    });
+  } else {
+    // INSTANT deselect - no delays, no blocking
+    taskRenderer.selectTaskInDOM(null);
+    updateCurrentTaskDisplay(null);
+    
+    // Background sync with server (no await - fire and forget)
+    messageHandler.sendRequest('clearCurrentTask').catch(error => {
+      console.error('Failed to clear current task:', error);
+      // Rollback on error
+      taskRenderer.selectTaskInDOM(taskId);
+      const currentTask = {
+        id: taskId,
+        title: selectedItem.querySelector('.task-title')?.textContent || '',
+        description: selectedItem.querySelector('.task-description')?.textContent || ''
+      };
+      updateCurrentTaskDisplay(currentTask);
+    });
   }
 }
 
@@ -289,10 +265,6 @@ function clearCurrentTaskDisplay() {
 }
 
 async function deleteTask(taskId) {
-  if (!confirm('Are you sure you want to delete this task?')) {
-    return;
-  }
-
   // Optimistic update - remove from DOM immediately
   taskRenderer.removeTaskFromDOM(taskId);
 
@@ -600,12 +572,10 @@ window.addEventListener('message', (event) => {
   }
 
   if (message.command === 'taskSelected') {
-    // Only update if not currently processing selection (to avoid overriding optimistic updates)
-    if (!isProcessingSelection) {
-      taskRenderer.selectTaskInDOM(message.taskId);
-      const currentTask = message.tasks?.find((t) => t.id === message.taskId);
-      updateCurrentTaskDisplay(currentTask);
-    }
+    // Always update from server response (optimistic updates already handled)
+    taskRenderer.selectTaskInDOM(message.taskId);
+    const currentTask = message.tasks?.find((t) => t.id === message.taskId);
+    updateCurrentTaskDisplay(currentTask);
     return;
   }
 
@@ -658,6 +628,8 @@ class MessageHandler {
     return new Promise((resolve, reject) => {
       const requestId = this.generateRequestId();
 
+      console.log('[MessageHandler] Creating request:', { command, requestId, data });
+
       // Store request promise handlers
       this.pendingRequests.set(requestId, {
         resolve,
@@ -669,24 +641,30 @@ class MessageHandler {
       // Set timeout for request
       setTimeout(() => {
         if (this.pendingRequests.has(requestId)) {
+          console.log('[MessageHandler] Request timed out:', { command, requestId });
           this.pendingRequests.delete(requestId);
           reject(new Error(`Request timeout for ${command}`));
         }
       }, 5000); // 5 second timeout
 
       // Send message to VSCode extension
-      vscode.postMessage({
+      const message = {
         command,
         requestId,
         ...data,
-      });
+      };
+      console.log('[MessageHandler] Posting message to VSCode:', message);
+      vscode.postMessage(message);
     });
   }
 
   handleResponse(message) {
     const { requestId, success, data, error } = message;
 
+    console.log('[MessageHandler] Received response:', { requestId, success, data, error });
+
     if (!requestId || !this.pendingRequests.has(requestId)) {
+      console.log('[MessageHandler] No matching request found for:', requestId);
       return false; // Not a response to our request
     }
 
@@ -694,8 +672,10 @@ class MessageHandler {
     this.pendingRequests.delete(requestId);
 
     if (success) {
+      console.log('[MessageHandler] Request successful, resolving:', { requestId, data });
       request.resolve(data);
     } else {
+      console.log('[MessageHandler] Request failed, rejecting:', { requestId, error });
       request.reject(new Error(error || 'Request failed'));
     }
 
@@ -843,9 +823,7 @@ class TaskRenderer {
 
     const taskElement = this.createTaskElement(task, currentTaskId);
 
-    // Add with animation
-    taskElement.style.opacity = '0';
-    taskElement.style.transform = 'translateY(-10px)';
+    // Add instantly visible
     this.taskListElement.appendChild(taskElement);
 
     this.updateTodoActionsVisibility();
@@ -859,11 +837,10 @@ class TaskRenderer {
       return;
     }
 
-    setTimeout(() => {
-      taskElement.remove();
-      this.checkForEmptyState();
-      this.updateTodoActionsVisibility();
-    }, 300);
+    // Instant removal for better performance
+    taskElement.remove();
+    this.checkForEmptyState();
+    this.updateTodoActionsVisibility();
   }
 
   updateTaskInDOM(taskId, updates, currentTaskId = null) {
@@ -996,17 +973,18 @@ class TaskRenderer {
   }
 
   async handleTaskDelete(taskId) {
-    if (!confirm('Are you sure you want to delete this task?')) {
-      return;
-    }
+    console.log('[TaskRenderer] Delete button clicked for task:', taskId);
 
+    console.log('[TaskRenderer] Starting optimistic DOM removal for task:', taskId);
     // Optimistic update
     this.removeTaskFromDOM(taskId);
 
     try {
-      await messageHandler.sendRequest('deleteTask', { taskId });
+      console.log('[TaskRenderer] Sending delete request to backend for task:', taskId);
+      const response = await messageHandler.sendRequest('deleteTask', { taskId });
+      console.log('[TaskRenderer] Delete request successful:', response);
     } catch (error) {
-      console.error('Failed to delete task:', error);
+      console.error('[TaskRenderer] Failed to delete task:', error);
       // Would need to restore the task element here
       // For now, let's trigger a full refresh
       vscode.postMessage({ command: 'refreshPanel' });

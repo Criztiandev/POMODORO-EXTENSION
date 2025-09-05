@@ -95,6 +95,7 @@ export class PomodoroPanel {
     // Handle messages from webview
     this.panel.webview.onDidReceiveMessage(
       (message) => {
+        console.log('[PomodoroPanel] Received message:', message);
         switch (message.command) {
           case 'toggleTimer':
             vscode.commands.executeCommand('pomodoro.toggleTimer');
@@ -291,10 +292,14 @@ export class PomodoroPanel {
   }
 
   private async handleDeleteTask(taskId: string, requestId?: string): Promise<void> {
+    console.log('[PomodoroPanel] handleDeleteTask called with:', { taskId, requestId });
     try {
+      console.log('[PomodoroPanel] Calling todoManager.deleteTask for:', taskId);
       await this.todoManager.deleteTask(taskId);
+      console.log('[PomodoroPanel] Task deleted successfully:', taskId);
       
       if (requestId) {
+        console.log('[PomodoroPanel] Sending success response for requestId:', requestId);
         this.sendAjaxResponse(requestId, true, { taskId });
       }
       

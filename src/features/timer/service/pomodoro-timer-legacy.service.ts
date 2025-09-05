@@ -165,7 +165,6 @@ export class PomodoroTimer extends EventEmitter {
       this.timer = null;
     }
 
-    // Store the current session type in a temporary variable to help with state transitions
     let newSessionType: SessionType;
     let duration: number;
 
