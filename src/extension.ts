@@ -3,6 +3,7 @@ import { PomodoroTimer } from './timer/PomodoroTimer';
 import { StatusBarManager } from './ui/StatusBarManager';
 import { PomodoroPanel } from './ui/PomodoroPanel';
 import { PomodoroSession, PomodoroState } from './types';
+import { SettingsManager } from './settings/SettingsManager';
 
 let pomodoroTimer: PomodoroTimer;
 let statusBarManager: StatusBarManager;
@@ -17,22 +18,72 @@ export function activate(context: vscode.ExtensionContext) {
   // Set up event listeners
   pomodoroTimer.on('stateChanged', (session: PomodoroSession) => {
     statusBarManager.updateStatusBar(session);
+    // Update panel if it's open
+    if (PomodoroPanel.currentPanel) {
+      PomodoroPanel.currentPanel.updateSession(session);
+    }
   });
 
   pomodoroTimer.on('tick', (session: PomodoroSession) => {
     statusBarManager.updateStatusBar(session);
+    // Update panel if it's open
+    if (PomodoroPanel.currentPanel) {
+      PomodoroPanel.currentPanel.updateSession(session);
+    }
   });
 
   pomodoroTimer.on('sessionComplete', (session: PomodoroSession) => {
-    const isBreak = session.state.toString().includes('Break');
-    const message = isBreak
-      ? `Break time! Time to ${
-          session.state === 'longBreak' ? 'take a long' : 'take a short'
-        } break.`
-      : 'Break is over! Time to get back to work.';
+    const settings = SettingsManager.getSettings();
+    
+    // Update panel if it's open
+    if (PomodoroPanel.currentPanel) {
+      PomodoroPanel.currentPanel.updateSession(session);
+    }
+    
+    // Check if notifications are enabled
+    if (!settings.notificationEnabled) {
+      return;
+    }
 
-    vscode.window.showInformationMessage(message);
+    let message = '';
+    let nextState = '';
+    
+    // Determine what session just completed and what's next
+    if (session.state === PomodoroState.PAUSED) {
+      // We need to look at what would be next based on current cycle
+      if (session.completedPomodoros === 0) {
+        message = '🍅 Ready to start your first Pomodoro session!';
+        nextState = 'Work Session';
+      } else {
+        const cyclePos = session.completedPomodoros % 6;
+        if (cyclePos === 1 || cyclePos === 3) {
+          message = '🍅 Work session completed! Time for a short break.';
+          nextState = 'Short Break';
+        } else if (cyclePos === 5) {
+          message = '🍅 Work session completed! Time for a long break.';
+          nextState = 'Long Break';
+        } else if (cyclePos === 0 || cyclePos === 2 || cyclePos === 4) {
+          message = '☕ Break time over! Ready for another work session.';
+          nextState = 'Work Session';
+        }
+      }
+    }
 
+    // Show single notification (fixed spam bug)
+    vscode.window.showInformationMessage(
+      `${message} Click to start ${nextState}`,
+      'Start Session'
+    ).then(selection => {
+      if (selection === 'Start Session') {
+        vscode.commands.executeCommand('pomodoro.start');
+      }
+    });
+  });
+
+  pomodoroTimer.on('sessionSkipped', (session: PomodoroSession) => {
+    // Simple feedback for skip action - no multiple notifications
+    vscode.window.showInformationMessage('⏭️ Session skipped! Ready for next session.');
+    
     // Update panel if it's open
     if (PomodoroPanel.currentPanel) {
       PomodoroPanel.currentPanel.updateSession(session);
@@ -61,6 +112,10 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   const skipCommand = vscode.commands.registerCommand('pomodoro.skip', () => {
+    if (!pomodoroTimer.isTimerActive()) {
+      vscode.window.showWarningMessage('⚠️ Cannot skip - timer is not running. Start the timer first.');
+      return;
+    }
     pomodoroTimer.skip();
   });
 
@@ -87,6 +142,36 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const updateSettingsCommand = vscode.commands.registerCommand(
+    'pomodoro.updateSettings',
+    () => {
+      pomodoroTimer.updateSettings();
+      
+      // Force UI refresh with current session and new settings
+      const currentSession = pomodoroTimer.getSession();
+      statusBarManager.updateStatusBar(currentSession);
+      
+      // Update panel if it's open
+      if (PomodoroPanel.currentPanel) {
+        PomodoroPanel.currentPanel.updateSession(currentSession);
+      }
+    }
+  );
+
+  const isTimerActiveCommand = vscode.commands.registerCommand(
+    'pomodoro.isTimerActive',
+    () => {
+      return pomodoroTimer.isTimerActive();
+    }
+  );
+
+  const switchSessionCommand = vscode.commands.registerCommand(
+    'pomodoro.switchSession',
+    (sessionType: 'work' | 'shortBreak' | 'longBreak') => {
+      pomodoroTimer.switchToSession(sessionType);
+    }
+  );
+
   // Add to context subscriptions
   context.subscriptions.push(
     startCommand,
@@ -95,6 +180,9 @@ export function activate(context: vscode.ExtensionContext) {
     skipCommand,
     openPanelCommand,
     toggleTimerCommand,
+    updateSettingsCommand,
+    isTimerActiveCommand,
+    switchSessionCommand,
     statusBarManager
   );
 }

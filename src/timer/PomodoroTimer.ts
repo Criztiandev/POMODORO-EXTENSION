@@ -1,42 +1,72 @@
 import { EventEmitter } from 'events';
-import { PomodoroState, PomodoroSession, PomodoroConfig } from '../types';
+import { PomodoroState, PomodoroSession, PomodoroConfig, SessionType } from '../types';
+import { SettingsManager } from '../settings/SettingsManager';
 
 export class PomodoroTimer extends EventEmitter {
   private session: PomodoroSession;
   private config: PomodoroConfig;
   private timer: NodeJS.Timeout | null = null;
+  private currentCyclePosition: number = 0; // Track position in cycle: 0,1,2,3,4 (work,short,work,short,work->long)
 
   constructor(config?: Partial<PomodoroConfig>) {
     super();
 
+    // Initialize config first
     this.config = {
-      workDuration: 25 * 60 * 1000, // 25 minutes
-      shortBreakDuration: 5 * 60 * 1000, // 5 minutes
-      longBreakDuration: 15 * 60 * 1000, // 15 minutes
-      pomodorosBeforeLongBreak: 4,
-      ...config,
+      workDuration: 25 * 60 * 1000,
+      shortBreakDuration: 5 * 60 * 1000,
+      longBreakDuration: 15 * 60 * 1000,
+      pomodorosBeforeLongBreak: 3,
     };
+
+    // Load from settings
+    this.loadConfigFromSettings();
 
     this.session = {
       state: PomodoroState.IDLE,
+      sessionType: SessionType.WORK,
       timeRemaining: this.config.workDuration,
       totalTime: this.config.workDuration,
       completedPomodoros: 0,
     };
   }
 
+  private loadConfigFromSettings(): void {
+    const settings = SettingsManager.getSettings();
+    this.config = {
+      workDuration: settings.workDuration * 60 * 1000,
+      shortBreakDuration: settings.shortBreakDuration * 60 * 1000,
+      longBreakDuration: settings.longBreakDuration * 60 * 1000,
+      pomodorosBeforeLongBreak: 3, // work(1)->short->work(2)->short->work(3)->long
+    };
+  }
+
   start(): void {
     if (this.session.state === PomodoroState.IDLE) {
-      // First time starting - always go to work
-      this.session.state = PomodoroState.WORK;
-      this.session.timeRemaining = this.config.workDuration;
-      this.session.totalTime = this.config.workDuration;
+      // Starting from idle - use the current sessionType to determine state
+      switch (this.session.sessionType) {
+        case SessionType.WORK:
+          this.session.state = PomodoroState.WORK;
+          break;
+        case SessionType.SHORT_BREAK:
+          this.session.state = PomodoroState.SHORT_BREAK;
+          break;
+        case SessionType.LONG_BREAK:
+          this.session.state = PomodoroState.LONG_BREAK;
+          break;
+      }
     } else if (this.session.state === PomodoroState.PAUSED) {
-      // Resuming from pause - determine what state to resume to
-      if (this.session.completedPomodoros === 0) {
-        this.session.state = PomodoroState.WORK;
-      } else {
-        this.session.state = this.getPreviousState();
+      // Resuming from pause - use sessionType to determine correct running state
+      switch (this.session.sessionType) {
+        case SessionType.WORK:
+          this.session.state = PomodoroState.WORK;
+          break;
+        case SessionType.SHORT_BREAK:
+          this.session.state = PomodoroState.SHORT_BREAK;
+          break;
+        case SessionType.LONG_BREAK:
+          this.session.state = PomodoroState.LONG_BREAK;
+          break;
       }
     }
 
@@ -59,10 +89,25 @@ export class PomodoroTimer extends EventEmitter {
       this.timer = null;
     }
 
+    // Reset to work session with appropriate duration
+    let duration = this.config.workDuration;
+    switch (this.session.sessionType) {
+      case SessionType.WORK:
+        duration = this.config.workDuration;
+        break;
+      case SessionType.SHORT_BREAK:
+        duration = this.config.shortBreakDuration;
+        break;
+      case SessionType.LONG_BREAK:
+        duration = this.config.longBreakDuration;
+        break;
+    }
+
     this.session = {
       state: PomodoroState.PAUSED,
-      timeRemaining: this.config.workDuration,
-      totalTime: this.config.workDuration,
+      sessionType: this.session.sessionType, // Maintain current session type
+      timeRemaining: duration,
+      totalTime: duration,
       completedPomodoros: this.session.completedPomodoros,
     };
 
@@ -70,6 +115,11 @@ export class PomodoroTimer extends EventEmitter {
   }
 
   skip(): void {
+    // Only allow skip if timer is actually running
+    if (!this.timer) {
+      return; // Do nothing if timer is not active
+    }
+
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
@@ -80,6 +130,74 @@ export class PomodoroTimer extends EventEmitter {
 
   getSession(): PomodoroSession {
     return { ...this.session };
+  }
+
+  updateSettings(): void {
+    this.loadConfigFromSettings();
+    // If idle, update the display time based on current session type
+    if (this.session.state === PomodoroState.IDLE) {
+      switch (this.session.sessionType) {
+        case SessionType.WORK:
+          this.session.timeRemaining = this.config.workDuration;
+          this.session.totalTime = this.config.workDuration;
+          break;
+        case SessionType.SHORT_BREAK:
+          this.session.timeRemaining = this.config.shortBreakDuration;
+          this.session.totalTime = this.config.shortBreakDuration;
+          break;
+        case SessionType.LONG_BREAK:
+          this.session.timeRemaining = this.config.longBreakDuration;
+          this.session.totalTime = this.config.longBreakDuration;
+          break;
+      }
+      this.emit('stateChanged', this.session);
+    }
+  }
+
+  isTimerActive(): boolean {
+    return this.timer !== null;
+  }
+
+  switchToSession(sessionType: 'work' | 'shortBreak' | 'longBreak'): void {
+    // Stop current timer if running
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+
+    // Store the current session type in a temporary variable to help with state transitions
+    let newSessionType: SessionType;
+    let duration: number;
+
+    // Set new session type and determine the correct state
+    switch (sessionType) {
+      case 'work':
+        newSessionType = SessionType.WORK;
+        duration = this.config.workDuration;
+        break;
+      case 'shortBreak':
+        newSessionType = SessionType.SHORT_BREAK;
+        duration = this.config.shortBreakDuration;
+        break;
+      case 'longBreak':
+        newSessionType = SessionType.LONG_BREAK;
+        duration = this.config.longBreakDuration;
+        break;
+    }
+
+    // Update session
+    this.session.sessionType = newSessionType;
+    this.session.timeRemaining = duration;
+    this.session.totalTime = duration;
+
+    // Set state based on session type - work starts as IDLE, breaks as PAUSED
+    if (sessionType === 'work') {
+      this.session.state = PomodoroState.IDLE;
+    } else {
+      this.session.state = PomodoroState.PAUSED;
+    }
+
+    this.emit('stateChanged', this.session);
   }
 
   private startTimer(): void {
@@ -100,22 +218,43 @@ export class PomodoroTimer extends EventEmitter {
       this.timer = null;
     }
 
-    if (this.session.state === PomodoroState.WORK) {
+    // Handle cycle progression: work(0) -> short(1) -> work(2) -> short(3) -> work(4) -> long(5) -> repeat
+    if (this.session.sessionType === SessionType.WORK) {
       this.session.completedPomodoros++;
-      const isLongBreak =
-        this.session.completedPomodoros %
-          this.config.pomodorosBeforeLongBreak ===
-        0;
+      this.currentCyclePosition++;
 
-      this.session.state = isLongBreak
-        ? PomodoroState.LONG_BREAK
-        : PomodoroState.SHORT_BREAK;
-      this.session.timeRemaining = isLongBreak
-        ? this.config.longBreakDuration
-        : this.config.shortBreakDuration;
-      this.session.totalTime = this.session.timeRemaining;
+      if (this.currentCyclePosition === 6) {
+        // After long break, restart cycle
+        this.currentCyclePosition = 0;
+        this.session.sessionType = SessionType.WORK;
+        this.session.timeRemaining = this.config.workDuration;
+        this.session.totalTime = this.config.workDuration;
+      } else if (this.currentCyclePosition % 2 === 1) {
+        // Odd positions (1,3) are short breaks
+        this.session.sessionType = SessionType.SHORT_BREAK;
+        this.session.timeRemaining = this.config.shortBreakDuration;
+        this.session.totalTime = this.config.shortBreakDuration;
+      } else if (this.currentCyclePosition === 5) {
+        // Position 5 is long break (after 3rd work session)
+        this.session.sessionType = SessionType.LONG_BREAK;
+        this.session.timeRemaining = this.config.longBreakDuration;
+        this.session.totalTime = this.config.longBreakDuration;
+      } else {
+        // Even positions (2,4) are work sessions
+        this.session.sessionType = SessionType.WORK;
+        this.session.timeRemaining = this.config.workDuration;
+        this.session.totalTime = this.config.workDuration;
+      }
     } else {
-      this.session.state = PomodoroState.WORK;
+      // Break completed, move to next in cycle
+      this.currentCyclePosition++;
+      
+      if (this.currentCyclePosition === 6) {
+        // After long break, restart cycle
+        this.currentCyclePosition = 0;
+      }
+      
+      this.session.sessionType = SessionType.WORK;
       this.session.timeRemaining = this.config.workDuration;
       this.session.totalTime = this.config.workDuration;
     }
@@ -127,29 +266,54 @@ export class PomodoroTimer extends EventEmitter {
   }
 
   private handleSessionSkip(): void {
-    if (this.session.state === PomodoroState.WORK) {
+    // Dedicated skip logic - DO NOT call handleSessionComplete() to avoid notifications
+    
+    // Handle cycle progression: work(0) -> short(1) -> work(2) -> short(3) -> work(4) -> long(5) -> repeat
+    if (this.session.sessionType === SessionType.WORK) {
       this.session.completedPomodoros++;
-      const isLongBreak =
-        this.session.completedPomodoros %
-          this.config.pomodorosBeforeLongBreak ===
-        0;
+      this.currentCyclePosition++;
 
-      this.session.state = isLongBreak
-        ? PomodoroState.LONG_BREAK
-        : PomodoroState.SHORT_BREAK;
-      this.session.timeRemaining = isLongBreak
-        ? this.config.longBreakDuration
-        : this.config.shortBreakDuration;
-      this.session.totalTime = this.session.timeRemaining;
+      if (this.currentCyclePosition === 6) {
+        // After long break, restart cycle
+        this.currentCyclePosition = 0;
+        this.session.sessionType = SessionType.WORK;
+        this.session.timeRemaining = this.config.workDuration;
+        this.session.totalTime = this.config.workDuration;
+      } else if (this.currentCyclePosition % 2 === 1) {
+        // Odd positions (1,3) are short breaks
+        this.session.sessionType = SessionType.SHORT_BREAK;
+        this.session.timeRemaining = this.config.shortBreakDuration;
+        this.session.totalTime = this.config.shortBreakDuration;
+      } else if (this.currentCyclePosition === 5) {
+        // Position 5 is long break (after 3rd work session)
+        this.session.sessionType = SessionType.LONG_BREAK;
+        this.session.timeRemaining = this.config.longBreakDuration;
+        this.session.totalTime = this.config.longBreakDuration;
+      } else {
+        // Even positions (2,4) are work sessions
+        this.session.sessionType = SessionType.WORK;
+        this.session.timeRemaining = this.config.workDuration;
+        this.session.totalTime = this.config.workDuration;
+      }
     } else {
-      this.session.state = PomodoroState.WORK;
+      // Break completed, move to next in cycle
+      this.currentCyclePosition++;
+      
+      if (this.currentCyclePosition === 6) {
+        // After long break, restart cycle
+        this.currentCyclePosition = 0;
+      }
+      
+      this.session.sessionType = SessionType.WORK;
       this.session.timeRemaining = this.config.workDuration;
       this.session.totalTime = this.config.workDuration;
     }
 
-    // After skip, return to start state (IDLE shows "Start")
-    this.session.state = PomodoroState.IDLE;
-    this.emit('sessionComplete', this.session);
+    // After skip, set to PAUSED so user can decide when to start next session
+    this.session.state = PomodoroState.PAUSED;
+    
+    // Emit sessionSkipped event (separate from sessionComplete to avoid notifications)
+    this.emit('sessionSkipped', this.session);
     this.emit('stateChanged', this.session);
   }
 

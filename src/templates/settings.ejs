@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Settings</title>
+    <style>
+        body {
+            font-family: var(--vscode-font-family);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-editor-background);
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: var(--vscode-titleBar-activeForeground);
+            margin: 0;
+        }
+        .back-btn {
+            background: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .back-btn:hover {
+            background: var(--vscode-button-secondaryHoverBackground);
+        }
+        .setting-group {
+            margin-bottom: 24px;
+        }
+        .setting-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .setting-input {
+            width: 100%;
+            background: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .setting-input:focus {
+            border-color: var(--vscode-focusBorder);
+            outline: none;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .checkbox {
+            width: auto;
+            margin: 0;
+        }
+        .range-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .range-input {
+            flex: 1;
+        }
+        .range-value {
+            min-width: 40px;
+            text-align: center;
+            color: var(--vscode-descriptionForeground);
+        }
+        .save-btn {
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .save-btn:hover {
+            background: var(--vscode-button-hoverBackground);
+        }
+        .description {
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        .warning {
+            padding: 12px;
+            background: var(--vscode-inputValidation-warningBackground);
+            color: var(--vscode-inputValidation-warningForeground);
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ Pomodoro Settings</h1>
+            <button class="back-btn" onclick="showDashboard()">← Dashboard</button>
+        </div>
+        
+        <% if (isTimerActive) { %>
+        <div class="warning">
+            ⚠️ Settings cannot be changed while timer is running. Stop the timer to modify settings.
+        </div>
+        <% } %>
+        
+        <form id="settingsForm">
+            <div class="setting-group">
+                <label class="setting-label" for="workDuration">Pomodoro Duration (minutes)</label>
+                <input type="number" id="workDuration" class="setting-input" value="<%= settings.workDuration %>" min="1" max="60" <%= isTimerActive ? 'disabled' : '' %>>
+            </div>
+            
+            <div class="setting-group">
+                <label class="setting-label" for="shortBreakDuration">Short Break Duration (minutes)</label>
+                <input type="number" id="shortBreakDuration" class="setting-input" value="<%= settings.shortBreakDuration %>" min="1" max="30" <%= isTimerActive ? 'disabled' : '' %>>
+            </div>
+            
+            <div class="setting-group">
+                <label class="setting-label" for="longBreakDuration">Long Break Duration (minutes)</label>
+                <input type="number" id="longBreakDuration" class="setting-input" value="<%= settings.longBreakDuration %>" min="1" max="60" <%= isTimerActive ? 'disabled' : '' %>>
+            </div>
+            
+            <div class="setting-group">
+                <label class="setting-label">Hour Format</label>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="hourFormat" class="checkbox" <%= settings.hourFormat ? 'checked' : '' %> <%= isTimerActive ? 'disabled' : '' %>>
+                    <label for="hourFormat">Use 24-hour format</label>
+                </div>
+                <div class="description">Currently using MM:SS format for timer display</div>
+            </div>
+            
+            <div class="setting-group">
+                <label class="setting-label">Notifications</label>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="notificationEnabled" class="checkbox" <%= settings.notificationEnabled ? 'checked' : '' %> <%= isTimerActive ? 'disabled' : '' %>>
+                    <label for="notificationEnabled">Enable notifications when sessions complete</label>
+                </div>
+                <div class="description">Shows system notifications when work sessions and breaks end</div>
+            </div>
+            
+            <button type="submit" class="save-btn" <%= isTimerActive ? 'disabled' : '' %>>
+                <%= isTimerActive ? 'Timer Running - Stop to Save' : 'Save Settings' %>
+            </button>
+        </form>
+    </div>
+    
+    <script>
+        const vscode = acquireVsCodeApi();
+        
+        
+        function showDashboard() {
+            vscode.postMessage({ command: 'showDashboard' });
+        }
+        
+        
+        document.getElementById('settingsForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const settings = {
+                workDuration: parseInt(document.getElementById('workDuration').value),
+                shortBreakDuration: parseInt(document.getElementById('shortBreakDuration').value),
+                longBreakDuration: parseInt(document.getElementById('longBreakDuration').value),
+                hourFormat: document.getElementById('hourFormat').checked,
+                notificationEnabled: document.getElementById('notificationEnabled').checked
+            };
+            
+            vscode.postMessage({ 
+                command: 'updateSettings',
+                settings: settings
+            });
+        });
+    </script>
+</body>
+</html>

@@ -44,6 +44,21 @@
         "command": "pomodoro.toggleTimer",
         "title": "Toggle Timer",
         "category": "Pomodoro"
+      },
+      {
+        "command": "pomodoro.updateSettings",
+        "title": "Update Settings",
+        "category": "Pomodoro"
+      },
+      {
+        "command": "pomodoro.isTimerActive",
+        "title": "Check Timer Status",
+        "category": "Pomodoro"
+      },
+      {
+        "command": "pomodoro.switchSession",
+        "title": "Switch Session Type",
+        "category": "Pomodoro"
       }
     ],
     "menus": {
@@ -67,6 +82,43 @@
           "command": "pomodoro.toggleTimer"
         }
       ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "Pomodoro Timer Settings",
+      "properties": {
+        "pomodoroTimer.workDuration": {
+          "type": "number",
+          "default": 25,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Duration of work sessions in minutes"
+        },
+        "pomodoroTimer.shortBreakDuration": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 30,
+          "description": "Duration of short break sessions in minutes"
+        },
+        "pomodoroTimer.longBreakDuration": {
+          "type": "number",
+          "default": 15,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Duration of long break sessions in minutes"
+        },
+        "pomodoroTimer.hourFormat": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use 24-hour format for time display"
+        },
+        "pomodoroTimer.notificationEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable notifications when sessions complete"
+        }
+      }
     }
   },
   "scripts": {
@@ -108,5 +160,9 @@
     "npm-run-all": "^4.1.5",
     "prettier": "^3.6.2",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@types/ejs": "^3.1.5",
+    "ejs": "^3.1.10"
   }
 }
