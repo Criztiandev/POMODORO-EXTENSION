@@ -2,7 +2,7 @@
   "name": "your-pomodoro",
   "displayName": "Your Pomodoro",
   "description": "A simple and effective Pomodoro timer for VS Code to boost your productivity",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "criztiandev",
   "icon": "your-pomodoro.logo.png",
   "repository": {
@@ -131,13 +131,19 @@
         },
         "pomodoroTimer.panelPosition": {
           "type": "string",
-          "enum": ["left", "right"],
+          "enum": [
+            "left",
+            "right"
+          ],
           "default": "left",
           "description": "Position of the timer panel in the status bar"
         },
         "pomodoroTimer.notificationType": {
           "type": "string",
-          "enum": ["notification", "modal"],
+          "enum": [
+            "notification",
+            "modal"
+          ],
           "default": "notification",
           "description": "Type of notification to show when sessions complete"
         },
@@ -172,7 +178,7 @@
                     "description": "Estimated pomodoros needed"
                   },
                   "estimatedMinutes": {
-                    "type": "number", 
+                    "type": "number",
                     "description": "Estimated minutes needed"
                   },
                   "completed": {
@@ -189,14 +195,21 @@
                   },
                   "priority": {
                     "type": "string",
-                    "enum": ["low", "medium", "high"],
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ],
                     "description": "Task priority level"
                   }
                 }
               }
             },
             "currentTaskId": {
-              "type": ["string", "null"],
+              "type": [
+                "string",
+                "null"
+              ],
               "description": "ID of currently selected task"
             }
           }
@@ -220,11 +233,11 @@
     "prepare": "husky",
     "test": "vscode-test",
     "version:patch": "npm version patch",
-    "version:minor": "npm version minor", 
+    "version:minor": "npm version minor",
     "version:major": "npm version major",
     "deploy": "npm run package && vsce publish && npm run release",
     "deploy:patch": "npm run version:patch && npm run deploy",
-    "deploy:minor": "npm run version:minor && npm run deploy", 
+    "deploy:minor": "npm run version:minor && npm run deploy",
     "deploy:major": "npm run version:major && npm run deploy",
     "release": "gh release create v$npm_package_version --generate-notes --latest"
   },
