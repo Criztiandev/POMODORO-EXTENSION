@@ -8,4 +8,8 @@ to structure this file.
 
 ## [Unreleased]
 
+- Add extension logo
+
+## [0.0.1] - Initial release
+
 - Initial release

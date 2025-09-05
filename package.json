@@ -4,6 +4,11 @@
   "description": "A simple and effective Pomodoro timer for VS Code to boost your productivity",
   "version": "0.0.1",
   "publisher": "criztiandev",
+  "icon": "src/assets/logo/your-pomodoro.logo.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Criztiandev/Your-Pomodoro"
+  },
   "engines": {
     "vscode": "^1.103.0"
   },
