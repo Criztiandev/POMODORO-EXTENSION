@@ -82,6 +82,43 @@
           "command": "pomodoro.toggleTimer"
         }
       ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "Pomodoro Timer Settings",
+      "properties": {
+        "pomodoroTimer.workDuration": {
+          "type": "number",
+          "default": 25,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Duration of work sessions in minutes"
+        },
+        "pomodoroTimer.shortBreakDuration": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 30,
+          "description": "Duration of short break sessions in minutes"
+        },
+        "pomodoroTimer.longBreakDuration": {
+          "type": "number",
+          "default": 15,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Duration of long break sessions in minutes"
+        },
+        "pomodoroTimer.hourFormat": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use 24-hour format for time display"
+        },
+        "pomodoroTimer.notificationEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable notifications when sessions complete"
+        }
+      }
     }
   },
   "scripts": {

@@ -74,6 +74,9 @@ export class PomodoroPanel {
           case 'updateSettings':
             this.handleSettingsUpdate(message.settings);
             break;
+          case 'testSound':
+            // No need to handle this in extension - it's handled in webview JavaScript
+            break;
         }
       },
       null,
@@ -83,6 +86,8 @@ export class PomodoroPanel {
 
   private async handleSettingsUpdate(settings: any): Promise<void> {
     try {
+      console.log('PomodoroPanel: Handling settings update', settings);
+
       // Check if timer is active before allowing settings update
       const isTimerActive = await vscode.commands.executeCommand('pomodoro.isTimerActive');
       
@@ -93,9 +98,17 @@ export class PomodoroPanel {
 
       await SettingsManager.updateSettings(settings);
       vscode.commands.executeCommand('pomodoro.updateSettings');
-      vscode.window.showInformationMessage('Settings updated successfully!');
+      
+      // Auto-redirect to dashboard after successful save
+      this.isSettingsView = false;
+      this.update();
+      
+      // Show success message in dashboard context
+      vscode.window.showInformationMessage('✅ Settings updated successfully!');
     } catch (error) {
-      vscode.window.showErrorMessage('Failed to update settings');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('PomodoroPanel: Settings update failed', error);
+      vscode.window.showErrorMessage(`Failed to update settings: ${errorMessage}`);
     }
   }
 
@@ -112,6 +125,7 @@ export class PomodoroPanel {
       });
     }
   }
+
 
   public dispose(): void {
     PomodoroPanel.currentPanel = undefined;
@@ -154,6 +168,7 @@ export class PomodoroPanel {
       completedPomodoros: 0,
     };
 
+    const settings = SettingsManager.getSettings();
     const minutes = Math.floor(session.timeRemaining / 60000);
     const seconds = Math.floor((session.timeRemaining % 60000) / 1000);
     const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
@@ -177,7 +192,8 @@ export class PomodoroPanel {
       sessionType: session.sessionType,
       buttonText,
       isTimerActive,
-      completedPomodoros: session.completedPomodoros
+      completedPomodoros: session.completedPomodoros,
+      settings
     });
   }
 

@@ -148,25 +148,12 @@
             </div>
             
             <div class="setting-group">
-                <label class="setting-label">Notification</label>
+                <label class="setting-label">Notifications</label>
                 <div class="checkbox-group">
                     <input type="checkbox" id="notificationEnabled" class="checkbox" <%= settings.notificationEnabled ? 'checked' : '' %> <%= isTimerActive ? 'disabled' : '' %>>
-                    <label for="notificationEnabled">Enable notifications</label>
+                    <label for="notificationEnabled">Enable notifications when sessions complete</label>
                 </div>
-            </div>
-            
-            <div class="setting-group">
-                <label class="setting-label" for="notificationCount">Notification Count</label>
-                <input type="number" id="notificationCount" class="setting-input" value="<%= settings.notificationCount %>" min="1" max="10" <%= isTimerActive ? 'disabled' : '' %>>
-                <div class="description">Number of notifications to show</div>
-            </div>
-            
-            <div class="setting-group">
-                <label class="setting-label">Alarm Volume</label>
-                <div class="range-group">
-                    <input type="range" id="alarmVolume" class="range-input" value="<%= settings.alarmVolume %>" min="0" max="100" <%= isTimerActive ? 'disabled' : '' %>>
-                    <span class="range-value" id="volumeValue"><%= settings.alarmVolume %>%</span>
-                </div>
+                <div class="description">Shows system notifications when work sessions and breaks end</div>
             </div>
             
             <button type="submit" class="save-btn" <%= isTimerActive ? 'disabled' : '' %>>
@@ -178,14 +165,11 @@
     <script>
         const vscode = acquireVsCodeApi();
         
-        // Update volume display
-        document.getElementById('alarmVolume').addEventListener('input', function(e) {
-            document.getElementById('volumeValue').textContent = e.target.value + '%';
-        });
         
         function showDashboard() {
             vscode.postMessage({ command: 'showDashboard' });
         }
+        
         
         document.getElementById('settingsForm').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -195,9 +179,7 @@
                 shortBreakDuration: parseInt(document.getElementById('shortBreakDuration').value),
                 longBreakDuration: parseInt(document.getElementById('longBreakDuration').value),
                 hourFormat: document.getElementById('hourFormat').checked,
-                notificationEnabled: document.getElementById('notificationEnabled').checked,
-                notificationCount: parseInt(document.getElementById('notificationCount').value),
-                alarmVolume: parseInt(document.getElementById('alarmVolume').value)
+                notificationEnabled: document.getElementById('notificationEnabled').checked
             };
             
             vscode.postMessage({ 

@@ -225,6 +225,8 @@
             const message = event.data;
             if (message.command === 'updateSession') {
                 updateUI(message.session, message.isTimerActive);
+            } else if (message.command === 'sessionComplete') {
+                updateUI(message.session, false);
             }
         });
     </script>

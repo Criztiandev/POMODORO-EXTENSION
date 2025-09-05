@@ -27,8 +27,6 @@ export interface PomodoroSettings {
   longBreakDuration: number; // in minutes
   hourFormat: boolean; // true for 24h, false for 12h
   notificationEnabled: boolean;
-  notificationCount: number; // "Last" number from dev plan
-  alarmVolume: number; // 0-100
 }
 
 export enum SessionType {

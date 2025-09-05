@@ -35,11 +35,13 @@ export function activate(context: vscode.ExtensionContext) {
   pomodoroTimer.on('sessionComplete', (session: PomodoroSession) => {
     const settings = SettingsManager.getSettings();
     
+    // Update panel if it's open
+    if (PomodoroPanel.currentPanel) {
+      PomodoroPanel.currentPanel.updateSession(session);
+    }
+    
+    // Check if notifications are enabled
     if (!settings.notificationEnabled) {
-      // Update panel if it's open
-      if (PomodoroPanel.currentPanel) {
-        PomodoroPanel.currentPanel.updateSession(session);
-      }
       return;
     }
 
@@ -50,7 +52,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (session.state === PomodoroState.PAUSED) {
       // We need to look at what would be next based on current cycle
       if (session.completedPomodoros === 0) {
-        message = 'Ready to start your first Pomodoro session!';
+        message = '🍅 Ready to start your first Pomodoro session!';
         nextState = 'Work Session';
       } else {
         const cyclePos = session.completedPomodoros % 6;
@@ -67,24 +69,15 @@ export function activate(context: vscode.ExtensionContext) {
       }
     }
 
-    // Show multiple notifications based on settings
-    for (let i = 0; i < settings.notificationCount; i++) {
-      setTimeout(() => {
-        vscode.window.showInformationMessage(
-          `${message} Click to start ${nextState}`,
-          'Start Session'
-        ).then(selection => {
-          if (selection === 'Start Session') {
-            vscode.commands.executeCommand('pomodoro.start');
-          }
-        });
-      }, i * 1000); // Stagger notifications by 1 second
-    }
-
-    // Update panel if it's open
-    if (PomodoroPanel.currentPanel) {
-      PomodoroPanel.currentPanel.updateSession(session);
-    }
+    // Show single notification (fixed spam bug)
+    vscode.window.showInformationMessage(
+      `${message} Click to start ${nextState}`,
+      'Start Session'
+    ).then(selection => {
+      if (selection === 'Start Session') {
+        vscode.commands.executeCommand('pomodoro.start');
+      }
+    });
   });
 
   pomodoroTimer.on('sessionSkipped', (session: PomodoroSession) => {
@@ -153,6 +146,15 @@ export function activate(context: vscode.ExtensionContext) {
     'pomodoro.updateSettings',
     () => {
       pomodoroTimer.updateSettings();
+      
+      // Force UI refresh with current session and new settings
+      const currentSession = pomodoroTimer.getSession();
+      statusBarManager.updateStatusBar(currentSession);
+      
+      // Update panel if it's open
+      if (PomodoroPanel.currentPanel) {
+        PomodoroPanel.currentPanel.updateSession(currentSession);
+      }
     }
   );
 
