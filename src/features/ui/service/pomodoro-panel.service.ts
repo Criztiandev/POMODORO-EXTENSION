@@ -1,0 +1,488 @@
+import * as vscode from 'vscode';
+import * as ejs from 'ejs';
+import * as fs from 'fs';
+import * as path from 'path';
+import { SettingsManager } from '@/features/settings/service/settings-manager.service';
+import { TodoManager } from '@/features/todo/service/todo-manager.service';
+import { PomodoroSession, PomodoroState, SessionType, Todo } from '@/types';
+
+export class PomodoroPanel {
+  public static currentPanel: PomodoroPanel | undefined;
+  public static readonly viewType = 'pomodoroPanel';
+
+  private readonly panel: vscode.WebviewPanel;
+  private disposables: vscode.Disposable[] = [];
+  private currentSession: PomodoroSession | null = null;
+  private isSettingsView: boolean = false;
+  private readonly extensionUri: vscode.Uri;
+  private todoManager: TodoManager;
+
+  private getTemplatePath(templateName: string): string {
+    return path.join(
+      this.extensionUri.fsPath,
+      'src',
+      'components',
+      'page',
+      templateName,
+      'index.ejs'
+    );
+  }
+
+  private getStyleUri(webview: vscode.Webview, templateName: string = 'dashboard'): vscode.Uri {
+    const styleUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, 'src', 'components', 'page', templateName, 'style.css')
+    );
+    return styleUri;
+  }
+
+  private getGlobalStyleUri(webview: vscode.Webview): vscode.Uri {
+    const globalStyleUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, 'src', 'components', 'shared', 'global.css')
+    );
+    return globalStyleUri;
+  }
+
+  private getScriptUri(webview: vscode.Webview, templateName: string = 'dashboard'): vscode.Uri {
+    const scriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, 'src', 'components', 'page', templateName, 'script.js')
+    );
+    return scriptUri;
+  }
+
+  private getSVGIcon(iconName: string): string {
+    const iconPath = path.join(
+      this.extensionUri.fsPath,
+      'src',
+      'assets',
+      'icon',
+      `${iconName}.svg`
+    );
+    return fs.readFileSync(iconPath, 'utf8');
+  }
+
+  public static createOrShow(extensionUri: vscode.Uri): PomodoroPanel {
+    const column = vscode.window.activeTextEditor
+      ? vscode.window.activeTextEditor.viewColumn
+      : undefined;
+
+    if (PomodoroPanel.currentPanel) {
+      PomodoroPanel.currentPanel.panel.reveal(column);
+      return PomodoroPanel.currentPanel;
+    }
+
+    const panel = vscode.window.createWebviewPanel(
+      PomodoroPanel.viewType,
+      'Pomodoro Timer',
+      column || vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+      }
+    );
+
+    PomodoroPanel.currentPanel = new PomodoroPanel(panel, extensionUri);
+    return PomodoroPanel.currentPanel;
+  }
+
+  private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
+    this.panel = panel;
+    this.extensionUri = extensionUri;
+    this.todoManager = TodoManager.getInstance();
+
+    this.update();
+    this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
+
+    // Handle messages from webview
+    this.panel.webview.onDidReceiveMessage(
+      (message) => {
+        switch (message.command) {
+          case 'toggleTimer':
+            vscode.commands.executeCommand('pomodoro.toggleTimer');
+            break;
+          case 'skip':
+            vscode.commands.executeCommand('pomodoro.skip');
+            break;
+          case 'switchSession':
+            vscode.commands.executeCommand(
+              'pomodoro.switchSession',
+              message.sessionType
+            );
+            break;
+          case 'showSettings':
+            this.isSettingsView = true;
+            this.update();
+            break;
+          case 'showDashboard':
+            this.isSettingsView = false;
+            this.update();
+            break;
+          case 'updateSettings':
+            this.handleSettingsUpdate(message.settings);
+            break;
+          case 'testSound':
+            // No need to handle this in extension - it's handled in webview JavaScript
+            break;
+          case 'createTask':
+            this.handleCreateTask(message.task);
+            break;
+          case 'updateTask':
+            this.handleUpdateTask(message.taskId, message.updates);
+            break;
+          case 'completeTask':
+            this.handleCompleteTask(message.taskId);
+            break;
+          case 'deleteTask':
+            this.handleDeleteTask(message.taskId);
+            break;
+          case 'setCurrentTask':
+            this.handleSetCurrentTask(message.taskId);
+            break;
+          case 'clearCurrentTask':
+            this.handleClearCurrentTask();
+            break;
+          case 'clearAllTasks':
+            this.handleClearAllTasks();
+            break;
+          case 'clearCompletedTasks':
+            this.handleClearCompletedTasks();
+            break;
+        }
+      },
+      null,
+      this.disposables
+    );
+  }
+
+  private async handleSettingsUpdate(settings: any): Promise<void> {
+    try {
+      console.log('PomodoroPanel: Handling settings update', settings);
+
+      // Check if timer is active before allowing settings update
+      const isTimerActive = await vscode.commands.executeCommand(
+        'pomodoro.isTimerActive'
+      );
+
+      if (isTimerActive) {
+        vscode.window.showWarningMessage(
+          'Cannot change settings while timer is running!'
+        );
+        return;
+      }
+
+      await SettingsManager.updateSettings(settings);
+      vscode.commands.executeCommand('pomodoro.updateSettings');
+
+      // Auto-redirect to dashboard after successful save
+      this.isSettingsView = false;
+      this.update();
+
+      // Show success message in dashboard context
+      vscode.window.showInformationMessage('✅ Settings updated successfully!');
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('PomodoroPanel: Settings update failed', error);
+      vscode.window.showErrorMessage(
+        `Failed to update settings: ${errorMessage}`
+      );
+    }
+  }
+
+  private async handleCreateTask(taskData: {
+    title: string;
+    description?: string;
+    estimatedPomodoros?: number;
+    estimatedMinutes?: number;
+    priority?: 'low' | 'medium' | 'high';
+  }): Promise<void> {
+    try {
+      await this.todoManager.createTask(
+        taskData.title,
+        taskData.description,
+        taskData.estimatedPomodoros,
+        taskData.estimatedMinutes,
+        taskData.priority
+      );
+      this.sendTodoUpdate();
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to create task';
+      vscode.window.showErrorMessage(errorMessage);
+    }
+  }
+
+  private async handleUpdateTask(
+    taskId: string,
+    updates: Partial<Todo>
+  ): Promise<void> {
+    try {
+      await this.todoManager.updateTask(taskId, updates);
+      this.sendTodoUpdate();
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to update task';
+      vscode.window.showErrorMessage(errorMessage);
+    }
+  }
+
+  private async handleCompleteTask(taskId: string): Promise<void> {
+    try {
+      await this.todoManager.completeTask(taskId);
+      this.sendTodoUpdate();
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to complete task';
+      vscode.window.showErrorMessage(errorMessage);
+    }
+  }
+
+  private async handleDeleteTask(taskId: string): Promise<void> {
+    try {
+      await this.todoManager.deleteTask(taskId);
+      this.sendTodoUpdate();
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to delete task';
+      vscode.window.showErrorMessage(errorMessage);
+    }
+  }
+
+  private async handleSetCurrentTask(taskId: string): Promise<void> {
+    try {
+      await this.todoManager.setCurrentTask(taskId);
+      this.sendTodoUpdate();
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to set current task';
+      vscode.window.showErrorMessage(errorMessage);
+    }
+  }
+
+  private async handleClearCurrentTask(): Promise<void> {
+    try {
+      await this.todoManager.clearCurrentTask();
+      this.sendTodoUpdate();
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to clear current task';
+      vscode.window.showErrorMessage(errorMessage);
+    }
+  }
+
+  private async handleClearAllTasks(): Promise<void> {
+    try {
+      const result = await vscode.window.showWarningMessage(
+        'Are you sure you want to clear all tasks?',
+        { modal: true },
+        'Clear All'
+      );
+
+      if (result === 'Clear All') {
+        await this.todoManager.clearAllTasks();
+        this.sendTodoUpdate();
+        vscode.window.showInformationMessage('All tasks cleared');
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to clear tasks';
+      vscode.window.showErrorMessage(errorMessage);
+    }
+  }
+
+  private async handleClearCompletedTasks(): Promise<void> {
+    try {
+      await this.todoManager.clearCompletedTasks();
+      this.sendTodoUpdate();
+      vscode.window.showInformationMessage('Completed tasks cleared');
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to clear completed tasks';
+      vscode.window.showErrorMessage(errorMessage);
+    }
+  }
+
+  private sendTodoUpdate(): void {
+    if (this.panel.webview && !this.isSettingsView) {
+      const todoState = this.todoManager.getTodoState();
+      this.panel.webview.postMessage({
+        command: 'updateTodos',
+        todoState,
+      });
+    }
+  }
+
+  public updateSession(session: PomodoroSession): void {
+    this.currentSession = session;
+    this.update();
+
+    // Send session data to webview for real-time updates
+    if (this.panel.webview && !this.isSettingsView) {
+      this.panel.webview.postMessage({
+        command: 'updateSession',
+        session: session,
+        isTimerActive:
+          session.state !== PomodoroState.IDLE &&
+          session.state !== PomodoroState.PAUSED,
+        todoState: this.todoManager.getTodoState(),
+      });
+    }
+  }
+
+  public dispose(): void {
+    PomodoroPanel.currentPanel = undefined;
+
+    // Send cleanup message to webview before disposal
+    try {
+      this.panel.webview.postMessage({ command: 'cleanup' });
+    } catch (error) {
+      // Ignore errors if webview is already disposed
+    }
+
+    // Dispose of the panel
+    this.panel.dispose();
+
+    // Clean up all disposables
+    while (this.disposables.length) {
+      const disposable = this.disposables.pop();
+      if (disposable) {
+        try {
+          disposable.dispose();
+        } catch (error) {
+          console.error('Error disposing resource:', error);
+        }
+      }
+    }
+    
+    // Clear references to prevent memory leaks
+    this.currentSession = null;
+    this.disposables = [];
+  }
+
+  private update(): void {
+    const webview = this.panel.webview;
+    this.panel.title = this.isSettingsView
+      ? 'Pomodoro Settings'
+      : 'Pomodoro Timer';
+    this.panel.webview.html = this.getHtmlForWebview(webview);
+  }
+
+  private getHtmlForWebview(webview: vscode.Webview): string {
+    try {
+      if (this.isSettingsView) {
+        return this.renderSettingsTemplate();
+      } else {
+        return this.renderDashboardTemplate();
+      }
+    } catch (error) {
+      console.error('Error rendering template:', error);
+      return this.getErrorHtml(error);
+    }
+  }
+
+  private renderDashboardTemplate(): string {
+    const session = this.currentSession || {
+      state: PomodoroState.IDLE,
+      sessionType: SessionType.WORK,
+      timeRemaining: 25 * 60 * 1000,
+      totalTime: 25 * 60 * 1000,
+      completedPomodoros: 0,
+    };
+
+    const settings = SettingsManager.getSettings();
+    const todoState = this.todoManager.getTodoState();
+    const currentTask = this.todoManager.getCurrentTask();
+
+    const minutes = Math.floor(session.timeRemaining / 60000);
+    const seconds = Math.floor((session.timeRemaining % 60000) / 1000);
+    const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+    const isTimerActive =
+      session.state !== PomodoroState.IDLE &&
+      session.state !== PomodoroState.PAUSED;
+    let buttonText = 'Start';
+
+    if (session.state === 'idle') {
+      buttonText = 'Start';
+    } else if (isTimerActive) {
+      buttonText = 'Pause';
+    } else if (session.state === 'paused') {
+      buttonText = 'Start'; // Always show Start after skip/pause for better UX
+    }
+
+    const templatePath = this.getTemplatePath('dashboard');
+    const template = fs.readFileSync(templatePath, 'utf8');
+    const styleUri = this.getStyleUri(this.panel.webview, 'dashboard');
+    const globalStyleUri = this.getGlobalStyleUri(this.panel.webview);
+    const scriptUri = this.getScriptUri(this.panel.webview, 'dashboard');
+    const plusIcon = this.getSVGIcon('plus');
+    const trashIcon = this.getSVGIcon('trash');
+    const pomodoroIcon = this.getSVGIcon('timer');
+
+    return ejs.render(template, {
+      timeString,
+      sessionType: session.sessionType,
+      buttonText,
+      isTimerActive,
+      completedPomodoros: session.completedPomodoros,
+      settings,
+      todoState,
+      currentTask,
+      styleUri: styleUri.toString(),
+      globalStyleUri: globalStyleUri.toString(),
+      scriptUri: scriptUri.toString(),
+      plusIcon,
+      trashIcon,
+      pomodoroIcon,
+    });
+  }
+
+  private renderSettingsTemplate(): string {
+    const settings = SettingsManager.getSettings();
+    const isTimerActive =
+      this.currentSession?.state !== PomodoroState.IDLE &&
+      this.currentSession?.state !== PomodoroState.PAUSED;
+
+    const templatePath = this.getTemplatePath('settings');
+    const template = fs.readFileSync(templatePath, 'utf8');
+    const styleUri = this.getStyleUri(this.panel.webview, 'settings');
+    const globalStyleUri = this.getGlobalStyleUri(this.panel.webview);
+
+    return ejs.render(template, {
+      settings,
+      isTimerActive,
+      styleUri: styleUri.toString(),
+      globalStyleUri: globalStyleUri.toString(),
+    });
+  }
+
+  private getErrorHtml(error: any): string {
+    return `<!DOCTYPE html>
+<html>
+<head>
+    <title>Template Error</title>
+    <style>
+        body { 
+            font-family: var(--vscode-font-family); 
+            color: var(--vscode-foreground); 
+            background: var(--vscode-editor-background);
+            padding: 20px;
+        }
+        .error { 
+            color: var(--vscode-errorForeground); 
+            background: var(--vscode-inputValidation-errorBackground);
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Template Rendering Error</h1>
+    <div class="error">
+        <pre>${error.message || error}</pre>
+    </div>
+</body>
+</html>`;
+  }
+}

@@ -1,0 +1,159 @@
+/* Regular */
+@font-face {
+  font-family: Poppins;
+  src: url(../assets/fonts/Poppins-Regular.ttf);
+}
+
+/* Light */
+@font-face {
+  font-family: Poppins;
+  src: url(../assets/fonts/Poppins-Light.ttf);
+  font-weight: 300;
+}
+/* Medium */
+@font-face {
+  font-family: Poppins;
+  src: url(../assets/fonts/Poppins-Medium.ttf);
+  font-weight: 500;
+}
+
+/* Italic */
+@font-face {
+  font-family: Poppins;
+  src: url(../assets/fonts/Poppins-Italic.ttf);
+  font-style: italic;
+}
+
+/* Semibold */
+@font-face {
+  font-family: Poppins;
+  src: url(../assets/fonts/Poppins-SemiBold.ttf);
+  font-weight: 600;
+}
+
+/* Bold */
+@font-face {
+  font-family: Poppins;
+  src: url(../assets/fonts/Poppins-Bold.ttf);
+  font-weight: bold;
+}
+
+/* Black */
+@font-face {
+  font-family: Poppins;
+  src: url(../assets/fonts/Poppins-Black.ttf);
+  font-weight: 900;
+}
+
+* {
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:root {
+  /* Spacing system */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* Border system */
+  --border: 1px solid var(--vscode-panel-border);
+  --border-radius: 4px;
+  --border-radius-md: 6px;
+  --border-radius-lg: 8px;
+
+  /* Shadow system */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.2);
+
+  /* Z-index system */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-tooltip: 1060;
+
+  /* Animation timings */
+  --duration-fast: 0.15s;
+  --duration-normal: 0.2s;
+  --duration-slow: 0.3s;
+  --easing: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Component-specific custom properties */
+  --modal-max-width: 500px;
+  --modal-backdrop-blur: 2px;
+  --task-list-max-height: 300px;
+}
+
+body {
+  font-family: 'Poppins', var(--vscode-font-family);
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-editor-background);
+  padding: var(--spacing);
+  line-height: 1.4;
+}
+
+h1 {
+  color: var(--vscode-titleBar-activeForeground);
+  margin: 0;
+}
+
+a {
+  color: var(--vscode-textLink-foreground);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--vscode-textLink-activeForeground);
+  text-decoration: underline;
+}
+
+/* Base button styles - more specific classes will override */
+button {
+  font-family: 'Poppins', var(--vscode-font-family);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+  padding: 16px;
+}
+
+button:disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+button > svg {
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+button > svg:not([class*='size-']) {
+  width: 16px;
+  height: 16px;
+}
+
+button:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px rgba(var(--ring), 0.5);
+}
+
+button[aria-invalid='true'] {
+  border-color: var(
+    --destructive
+  ); /* Assuming --destructive is a custom variable for error color */
+  box-shadow: 0 0 0 3px rgba(var(--destructive), 0.2); /* Translating aria-invalid:ring-destructive/20 */
+}
+
+@media (prefers-color-scheme: dark) {
+  button[aria-invalid='true'] {
+    box-shadow: 0 0 0 3px rgba(var(--destructive), 0.4); /* Translating dark:aria-invalid:ring-destructive/40 */
+  }
+}

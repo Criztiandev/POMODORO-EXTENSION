@@ -117,6 +117,66 @@
           "type": "boolean",
           "default": true,
           "description": "Enable notifications when sessions complete"
+        },
+        "pomodoroTimer.pomodoroTodos": {
+          "type": "object",
+          "default": {
+            "tasks": [],
+            "currentTaskId": null
+          },
+          "description": "Pomodoro todo list state and tasks",
+          "properties": {
+            "tasks": {
+              "type": "array",
+              "description": "List of todo tasks",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "Unique task identifier"
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Task title"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Task description"
+                  },
+                  "estimatedPomodoros": {
+                    "type": "number",
+                    "description": "Estimated pomodoros needed"
+                  },
+                  "estimatedMinutes": {
+                    "type": "number", 
+                    "description": "Estimated minutes needed"
+                  },
+                  "completed": {
+                    "type": "boolean",
+                    "description": "Whether task is completed"
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "description": "Task creation timestamp (ISO string)"
+                  },
+                  "completedAt": {
+                    "type": "string",
+                    "description": "Task completion timestamp (ISO string)"
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": ["low", "medium", "high"],
+                    "description": "Task priority level"
+                  }
+                }
+              }
+            },
+            "currentTaskId": {
+              "type": ["string", "null"],
+              "description": "ID of currently selected task"
+            }
+          }
         }
       }
     }

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { PomodoroSettings } from '../types';
+import { PomodoroSettings } from '../types/settings.interface';
 
 export class SettingsManager {
   private static readonly SETTINGS_KEY = 'pomodoroTimer';

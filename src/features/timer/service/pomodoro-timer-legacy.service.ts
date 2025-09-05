@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
-import { PomodoroState, PomodoroSession, PomodoroConfig, SessionType } from '../types';
-import { SettingsManager } from '../settings/SettingsManager';
+import { PomodoroState, PomodoroSession, PomodoroConfig, SessionType } from '@/types';
+import { SettingsManager } from '@/features/settings/service/settings-manager.service';
 
 export class PomodoroTimer extends EventEmitter {
   private session: PomodoroSession;

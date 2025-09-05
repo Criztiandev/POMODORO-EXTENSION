@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pomodoro Timer</title>
+  <link rel="stylesheet" href="<%= styleUri %>">
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Pomodor Timer</h1>
+      <button class="settings-btn" onclick="showSettings()">Settings</button>
+    </div>
+
+    <div class="timer-display"><%= timeString %></div>
+
+    <% if (currentTask) { %>
+    <div class="working-on-display" style="text-align: center; margin-top: -10px; margin-bottom: 20px; font-size: 14px; color: var(--vscode-descriptionForeground);">
+      Working on: <span style="color: var(--vscode-focusBorder); font-weight: bold;"><%= currentTask.title %></span>
+    </div>
+    <% } %>
+
+    <div class="tabs">
+      <button class="tab <%= sessionType === 'work' ? 'active' : '' %>" onclick="selectTab('work')">
+        Working </button>
+      <button class="tab <%= sessionType === 'shortBreak' ? 'active' : '' %>" onclick="selectTab('shortBreak')">
+        Short Break
+      </button>
+      <button class="tab <%= sessionType === 'longBreak' ? 'active' : '' %>" onclick="selectTab('longBreak')">
+        Long Break
+      </button>
+    </div>
+
+    <div class="controls">
+      <button class="control-btn" onclick="toggleTimer()"><%= buttonText %></button>
+      <button class="control-btn secondary <%= isTimerActive ? '' : 'disabled' %>" onclick="skip()" <%= isTimerActive ? '' : 'disabled' %>>Skip</button>
+    </div>
+
+    <div class="session-info" style="margin-bottom: 32px;">
+      Completed Pomodoros: <%= completedPomodoros %>
+    </div>
+
+    <!-- Todo Section -->
+    <div class="todo-section">
+
+
+      <div class="task-list" id="taskList">
+        <% if (todoState.tasks && todoState.tasks.length > 0) { %>
+        <% todoState.tasks.forEach(task => { %>
+        <div class="task-item <%= task.completed ? 'completed' : '' %> <%= task.id === todoState.currentTaskId ? 'current' : '' %>" data-task-id="<%= task.id %>">
+          <div class="task-main" style="display: flex; gap: 16px;">
+
+            <label class="circle-checkbox-container">
+              <input type="checkbox" class="task-checkbox hidden-checkbox" <%= task.completed ? 'checked' : '' %> onchange="toggleTask('<%= task.id %>', this.checked)">
+              <span class="checkmark"></span>
+            </label>
+
+            <div class="task-content" onclick="selectTask('<%= task.id %>')">
+              <div class="task-title <%= task.completed ? 'completed' : '' %>">
+                <%= task.title %>
+              </div>
+              <% if (task.estimatedPomodoros || task.estimatedMinutes) { %>
+              <div class="task-meta">
+                <% if (task.estimatedPomodoros) { %>
+                <%= task.estimatedPomodoros %> pomodoros <% } %> <% if (task.estimatedMinutes) { %> <%= pomodoroIcon %> <%= task.estimatedMinutes %> min <% } %> </div>
+              <% } %>
+            </div>
+          </div>
+
+
+          <div class="task-actions">
+            <button class="task-action-btn" onclick="deleteTask('<%= task.id %>')" title="Delete Task">
+              <%- trashIcon %>
+            </button>
+          </div>
+        </div>
+        <% }); %>
+        <% } else { %>
+        <div class="empty-state">
+          No tasks yet. Create your first task to get started!</div>
+        <% } %>
+      </div>
+
+      <button class="create-task-btn" onclick="showCreateTaskModal()" style="margin-bottom: 32px;">
+        <%- plusIcon %> Add New Task
+      </button>
+
+      <% if (todoState.tasks && todoState.tasks.length > 0) { %>
+      <div class="todo-actions">
+        <span class="todo-action-link" onclick="clearCompletedTasks()">Clear Completed</span>
+        <span class="todo-action-link" onclick="clearAllTasks()">Clear All</span>
+      </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Task Creation Modal -->
+  <div class="modal-overlay" id="createTaskModal" style="display: none;">
+    <div class="modal" style="padding: 16px; border-radius: 4px;">
+      <h3>Create New Task</h3>
+      <form id="createTaskForm">
+        <div class="form-group">
+          <label class="form-label" for="taskTitle">
+            Title <span style="color: var(--vscode-errorForeground);">*</span>
+          </label>
+          <input type="text" id="taskTitle" class="form-input" maxlength="100" required>
+          <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 2px;">
+            <span id="titleCounter">0</span>/100 characters
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="taskDescription">Description</label>
+          <textarea id="taskDescription" class="form-input form-textarea" placeholder="Optional task details..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="taskEstimate">Time Estimate</label>
+          <select id="taskEstimateType" class="form-input" style="margin-bottom: 8px;">
+            <option value="none">No estimate</option>
+            <option value="pomodoros">Pomodoros (25 min each)</option>
+            <option value="minutes">Custom minutes</option>
+          </select>
+          <input type="number" id="taskEstimateValue" class="form-input" style="display: none;" min="1" max="480">
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" onclick="hideCreateTaskModal()">
+            Cancel
+          </button>
+          <button type="submit" class="btn-primary">
+            Create Task
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="<%= scriptUri %>"></script>
+</body>
+
+</html>

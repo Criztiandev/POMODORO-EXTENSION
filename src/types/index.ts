@@ -21,16 +21,27 @@ export interface PomodoroConfig {
   pomodorosBeforeLongBreak: number;
 }
 
-export interface PomodoroSettings {
-  workDuration: number; // in minutes
-  shortBreakDuration: number; // in minutes
-  longBreakDuration: number; // in minutes
-  hourFormat: boolean; // true for 24h, false for 12h
-  notificationEnabled: boolean;
-}
+
 
 export enum SessionType {
   WORK = 'work',
   SHORT_BREAK = 'shortBreak',
   LONG_BREAK = 'longBreak'
+}
+
+export interface Todo {
+  id: string;
+  title: string;
+  description?: string;
+  estimatedPomodoros?: number;
+  estimatedMinutes?: number;
+  completed: boolean;
+  createdAt: Date;
+  completedAt?: Date;
+  priority?: 'low' | 'medium' | 'high';
+}
+
+export interface TodoState {
+  tasks: Todo[];
+  currentTaskId?: string;
 }

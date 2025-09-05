@@ -1,12 +1,14 @@
 import * as vscode from 'vscode';
-import { PomodoroTimer } from './timer/PomodoroTimer';
-import { StatusBarManager } from './ui/StatusBarManager';
-import { PomodoroPanel } from './ui/PomodoroPanel';
-import { PomodoroSession, PomodoroState } from './types';
-import { SettingsManager } from './settings/SettingsManager';
+import { PomodoroTimer } from '@/features/timer/service/pomodoro-timer-legacy.service';
+import { StatusBarManager } from '@/features/ui/service/status-bar-manager.service';
+import { PomodoroPanel } from '@/features/ui/service/pomodoro-panel.service';
+import { PomodoroSession, PomodoroState } from '@/types';
+import { SettingsManager } from '@/features/settings/service/settings-manager.service';
+import { TodoManager } from '@/features/todo/service/todo-manager.service';
 
 let pomodoroTimer: PomodoroTimer;
 let statusBarManager: StatusBarManager;
+let todoManager: TodoManager;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Pomodoro extension is now active!');
@@ -14,6 +16,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Initialize components
   pomodoroTimer = new PomodoroTimer();
   statusBarManager = new StatusBarManager();
+  todoManager = TodoManager.getInstance();
 
   // Set up event listeners
   pomodoroTimer.on('stateChanged', (session: PomodoroSession) => {
@@ -193,5 +196,8 @@ export function deactivate() {
   }
   if (statusBarManager) {
     statusBarManager.dispose();
+  }
+  if (todoManager) {
+    todoManager.dispose();
   }
 }

@@ -1,5 +1,6 @@
+import { PomodoroSession, PomodoroState, SessionType } from '@/types';
 import * as vscode from 'vscode';
-import { PomodoroSession, PomodoroState, SessionType } from '../types';
+
 
 export class StatusBarManager {
   private mainStatusBarItem: vscode.StatusBarItem;
