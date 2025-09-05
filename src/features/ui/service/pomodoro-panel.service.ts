@@ -76,14 +76,20 @@ export class PomodoroPanel {
   }
 
   private getSVGIcon(iconName: string): string {
-    const iconPath = path.join(
-      this.extensionUri.fsPath,
-      'src',
-      'assets',
-      'icon',
-      `${iconName}.svg`
-    );
-    return fs.readFileSync(iconPath, 'utf8');
+    try {
+      const iconPath = path.join(
+        this.extensionUri.fsPath,
+        'src',
+        'assets',
+        'icon',
+        `${iconName}.svg`
+      );
+      return fs.readFileSync(iconPath, 'utf8');
+    } catch (error) {
+      console.error(`Failed to load SVG icon: ${iconName}`, error);
+      // Return a fallback SVG for missing icons
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    }
   }
 
   public static createOrShow(extensionUri: vscode.Uri): PomodoroPanel {
@@ -599,19 +605,20 @@ export class PomodoroPanel {
       buttonText = 'Start'; // Always show Start after skip/pause for better UX
     }
 
-    const templatePath = this.getTemplatePath('dashboard');
-    const template = fs.readFileSync(templatePath, 'utf8');
-    const styleUri = this.getStyleUri(this.panel.webview, 'dashboard');
-    const globalStyleUri = this.getGlobalStyleUri(this.panel.webview);
-    const scriptUri = this.getScriptUri(this.panel.webview, 'dashboard');
-    const plusIcon = this.getSVGIcon('plus');
-    const trashIcon = this.getSVGIcon('trash');
-    const pomodoroIcon = this.getSVGIcon('timer');
-    const targetIcon = this.getSVGIcon('target');
-    const trophyIcon = this.getSVGIcon('trophy');
-    const partyPopperIcon = this.getSVGIcon('party-popper');
+    try {
+      const templatePath = this.getTemplatePath('dashboard');
+      const template = fs.readFileSync(templatePath, 'utf8');
+      const styleUri = this.getStyleUri(this.panel.webview, 'dashboard');
+      const globalStyleUri = this.getGlobalStyleUri(this.panel.webview);
+      const scriptUri = this.getScriptUri(this.panel.webview, 'dashboard');
+      const plusIcon = this.getSVGIcon('plus');
+      const trashIcon = this.getSVGIcon('trash');
+      const pomodoroIcon = this.getSVGIcon('timer');
+      const targetIcon = this.getSVGIcon('target');
+      const trophyIcon = this.getSVGIcon('trophy');
+      const partyPopperIcon = this.getSVGIcon('party-popper');
 
-    return ejs.render(template, {
+      return ejs.render(template, {
       timeString,
       sessionType: session.sessionType,
       buttonText,
@@ -627,9 +634,13 @@ export class PomodoroPanel {
       trashIcon,
       pomodoroIcon,
       targetIcon,
-      trophyIcon,
-      partyPopperIcon,
-    });
+        trophyIcon,
+        partyPopperIcon,
+      });
+    } catch (error) {
+      console.error('Error rendering dashboard template:', error);
+      return this.getErrorHtml(error);
+    }
   }
 
   private renderSettingsTemplate(): string {
@@ -638,20 +649,25 @@ export class PomodoroPanel {
       this.currentSession?.state !== PomodoroState.IDLE &&
       this.currentSession?.state !== PomodoroState.PAUSED;
 
-    const templatePath = this.getTemplatePath('settings');
-    const template = fs.readFileSync(templatePath, 'utf8');
-    const styleUri = this.getStyleUri(this.panel.webview, 'settings');
-    const globalStyleUri = this.getGlobalStyleUri(this.panel.webview);
-    const scriptUri = this.getScriptUri(this.panel.webview, 'settings');
+    try {
+      const templatePath = this.getTemplatePath('settings');
+      const template = fs.readFileSync(templatePath, 'utf8');
+      const styleUri = this.getStyleUri(this.panel.webview, 'settings');
+      const globalStyleUri = this.getGlobalStyleUri(this.panel.webview);
+      const scriptUri = this.getScriptUri(this.panel.webview, 'settings');
 
-    return ejs.render(template, {
-      settings,
-      isTimerActive,
-      styleUri: styleUri.toString(),
-      globalStyleUri: globalStyleUri.toString(),
-      scriptUri: scriptUri.toString(),
-    });
-  }
+        return ejs.render(template, {
+          settings,
+          isTimerActive,
+          styleUri: styleUri.toString(),
+          globalStyleUri: globalStyleUri.toString(),
+          scriptUri: scriptUri.toString(),
+        });
+      } catch (error) {
+        console.error('Error rendering settings template:', error);
+        return this.getErrorHtml(error);
+      }
+    }
 
   private getErrorHtml(error: any): string {
     return `<!DOCTYPE html>
