@@ -71,6 +71,36 @@
         <div class="description">Shows system notifications when work sessions and breaks end</div>
       </div>
 
+      <div class="setting-group">
+        <label class="setting-label">Notification Type</label>
+        <div class="radio-group">
+          <div class="radio-option">
+            <input type="radio" id="notificationType-notification" name="notificationType" value="notification" <%= settings.notificationType === 'notification' ? 'checked' : '' %> <%= isTimerActive ? 'disabled' : '' %>>
+            <label for="notificationType-notification">System Notification</label>
+          </div>
+          <div class="radio-option">
+            <input type="radio" id="notificationType-modal" name="notificationType" value="modal" <%= settings.notificationType === 'modal' ? 'checked' : '' %> <%= isTimerActive ? 'disabled' : '' %>>
+            <label for="notificationType-modal">Modal Dialog</label>
+          </div>
+        </div>
+        <div class="description">Choose how completion notifications are displayed</div>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">Panel Position</label>
+        <div class="radio-group">
+          <div class="radio-option">
+            <input type="radio" id="panelPosition-left" name="panelPosition" value="left" <%= settings.panelPosition === 'left' ? 'checked' : '' %> <%= isTimerActive ? 'disabled' : '' %>>
+            <label for="panelPosition-left">Left Side</label>
+          </div>
+          <div class="radio-option">
+            <input type="radio" id="panelPosition-right" name="panelPosition" value="right" <%= settings.panelPosition === 'right' ? 'checked' : '' %> <%= isTimerActive ? 'disabled' : '' %>>
+            <label for="panelPosition-right">Right Side</label>
+          </div>
+        </div>
+        <div class="description">Position of the timer panel in the status bar</div>
+      </div>
+
       <button type="submit" class="save-btn" <%= isTimerActive ? 'disabled' : '' %>>
         <%= isTimerActive ? 'Timer Running - Stop to Save' : 'Save Settings' %>
       </button>

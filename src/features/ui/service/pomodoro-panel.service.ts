@@ -211,7 +211,7 @@ export class PomodoroPanel {
       this.update();
 
       // Show success message in dashboard context
-      vscode.window.showInformationMessage('✅ Settings updated successfully!');
+      vscode.window.showInformationMessage('Settings updated successfully!');
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error occurred';
@@ -320,7 +320,7 @@ export class PomodoroPanel {
       if (completedTasks.length >= 2) {
         vscode.window
           .showInformationMessage(
-            '🎉 Congratulations! All tasks completed!',
+            'Congratulations! All tasks completed!',
             'Delete All Completed Tasks'
           )
           .then((selection) => {
@@ -607,6 +607,9 @@ export class PomodoroPanel {
     const plusIcon = this.getSVGIcon('plus');
     const trashIcon = this.getSVGIcon('trash');
     const pomodoroIcon = this.getSVGIcon('timer');
+    const targetIcon = this.getSVGIcon('target');
+    const trophyIcon = this.getSVGIcon('trophy');
+    const partyPopperIcon = this.getSVGIcon('party-popper');
 
     return ejs.render(template, {
       timeString,
@@ -623,6 +626,9 @@ export class PomodoroPanel {
       plusIcon,
       trashIcon,
       pomodoroIcon,
+      targetIcon,
+      trophyIcon,
+      partyPopperIcon,
     });
   }
 

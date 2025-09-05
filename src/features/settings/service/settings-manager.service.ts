@@ -9,7 +9,9 @@ export class SettingsManager {
     shortBreakDuration: 5,
     longBreakDuration: 15,
     hourFormat: true,
-    notificationEnabled: true
+    notificationEnabled: true,
+    panelPosition: 'left',
+    notificationType: 'notification'
   };
 
   static getSettings(): PomodoroSettings {
@@ -20,7 +22,9 @@ export class SettingsManager {
       shortBreakDuration: config.get('shortBreakDuration', this.defaultSettings.shortBreakDuration),
       longBreakDuration: config.get('longBreakDuration', this.defaultSettings.longBreakDuration),
       hourFormat: config.get('hourFormat', this.defaultSettings.hourFormat),
-      notificationEnabled: config.get('notificationEnabled', this.defaultSettings.notificationEnabled)
+      notificationEnabled: config.get('notificationEnabled', this.defaultSettings.notificationEnabled),
+      panelPosition: config.get('panelPosition', this.defaultSettings.panelPosition),
+      notificationType: config.get('notificationType', this.defaultSettings.notificationType)
     };
   }
 

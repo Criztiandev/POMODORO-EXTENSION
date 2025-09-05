@@ -119,6 +119,18 @@
           "default": true,
           "description": "Enable notifications when sessions complete"
         },
+        "pomodoroTimer.panelPosition": {
+          "type": "string",
+          "enum": ["left", "right"],
+          "default": "left",
+          "description": "Position of the timer panel in the status bar"
+        },
+        "pomodoroTimer.notificationType": {
+          "type": "string",
+          "enum": ["notification", "modal"],
+          "default": "notification",
+          "description": "Type of notification to show when sessions complete"
+        },
         "pomodoroTimer.pomodoroTodos": {
           "type": "object",
           "default": {

@@ -12,7 +12,9 @@ document.getElementById('settingsForm').addEventListener('submit', function(e) {
         shortBreakDuration: parseInt(document.getElementById('shortBreakDuration').value),
         longBreakDuration: parseInt(document.getElementById('longBreakDuration').value),
         hourFormat: document.getElementById('hourFormat').checked,
-        notificationEnabled: document.getElementById('notificationEnabled').checked
+        notificationEnabled: document.getElementById('notificationEnabled').checked,
+        panelPosition: document.querySelector('input[name="panelPosition"]:checked').value,
+        notificationType: document.querySelector('input[name="notificationType"]:checked').value
     };
     
     vscode.postMessage({ 

@@ -336,6 +336,10 @@
   padding: calc(var(--spacing) * 2);
   border: var(--border);
   font-style: italic;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
 }
 
 .modal-overlay {
