@@ -19,11 +19,6 @@
     "onStartupFinished"
   ],
   "main": "./dist/extension.js",
-  "files": [
-    "dist/",
-    "src/components/",
-    "your-pomodoro.logo.png"
-  ],
   "contributes": {
     "commands": [
       {
@@ -235,7 +230,7 @@
     "version:patch": "npm version patch",
     "version:minor": "npm version minor",
     "version:major": "npm version major",
-    "deploy": "npm run package && vsce publish && npm run release",
+    "deploy": "npm run package && vsce publish",
     "deploy:patch": "npm run version:patch && npm run deploy",
     "deploy:minor": "npm run version:minor && npm run deploy",
     "deploy:major": "npm run version:major && npm run deploy",
