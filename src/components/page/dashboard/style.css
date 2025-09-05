@@ -176,6 +176,9 @@
 
   margin-bottom: 1px;
   padding: 12px 24px;
+  
+  /* Make entire task item feel clickable */
+  transition: background-color 0.2s ease;
 }
 
 .task-item:hover {
@@ -231,6 +234,10 @@
   transition: all 0.2s ease;
 }
 
+.circle-checkbox-container:hover .checkmark {
+  border-color: var(--vscode-focusBorder, #2196f3);
+}
+
 .circle-checkbox-container .checkmark:after {
   content: '';
   position: absolute;
@@ -281,6 +288,9 @@
 .task-actions {
   margin-left: var(--spacing);
   opacity: 0;
+  /* Prevent task selection when clicking actions */
+  z-index: 1;
+  position: relative;
 }
 
 .task-item:hover .task-actions {

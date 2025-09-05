@@ -122,23 +122,26 @@ export class PomodoroPanel {
           case 'testSound':
             // No need to handle this in extension - it's handled in webview JavaScript
             break;
+          case 'refreshPanel':
+            this.update();
+            break;
           case 'createTask':
-            this.handleCreateTask(message.task);
+            this.handleCreateTask(message.task, message.requestId);
             break;
           case 'updateTask':
-            this.handleUpdateTask(message.taskId, message.updates);
+            this.handleUpdateTask(message.taskId, message.updates, message.requestId);
             break;
           case 'completeTask':
-            this.handleCompleteTask(message.taskId);
+            this.handleCompleteTask(message.taskId, message.requestId);
             break;
           case 'deleteTask':
-            this.handleDeleteTask(message.taskId);
+            this.handleDeleteTask(message.taskId, message.requestId);
             break;
           case 'setCurrentTask':
-            this.handleSetCurrentTask(message.taskId);
+            this.handleSetCurrentTask(message.taskId, message.requestId);
             break;
           case 'clearCurrentTask':
-            this.handleClearCurrentTask();
+            this.handleClearCurrentTask(message.requestId);
             break;
           case 'clearAllTasks':
             this.handleClearAllTasks();
@@ -194,78 +197,177 @@ export class PomodoroPanel {
     estimatedPomodoros?: number;
     estimatedMinutes?: number;
     priority?: 'low' | 'medium' | 'high';
-  }): Promise<void> {
+  }, requestId?: string): Promise<void> {
     try {
-      await this.todoManager.createTask(
+      const newTask = await this.todoManager.createTask(
         taskData.title,
         taskData.description,
         taskData.estimatedPomodoros,
         taskData.estimatedMinutes,
         taskData.priority
       );
-      this.sendTodoUpdate();
+      
+      // Send targeted response
+      if (requestId) {
+        this.sendAjaxResponse(requestId, true, { task: newTask });
+      }
+      
+      // Send targeted event to all listeners
+      const currentTaskId = this.todoManager.getTodoState().currentTaskId;
+      this.panel.webview.postMessage({
+        command: 'taskCreated',
+        task: newTask,
+        currentTaskId
+      });
+      
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to create task';
-      vscode.window.showErrorMessage(errorMessage);
+      
+      if (requestId) {
+        this.sendAjaxResponse(requestId, false, null, errorMessage);
+      } else {
+        vscode.window.showErrorMessage(errorMessage);
+      }
     }
   }
 
   private async handleUpdateTask(
     taskId: string,
-    updates: Partial<Todo>
+    updates: Partial<Todo>,
+    requestId?: string
   ): Promise<void> {
     try {
-      await this.todoManager.updateTask(taskId, updates);
-      this.sendTodoUpdate();
+      const updatedTask = await this.todoManager.updateTask(taskId, updates);
+      
+      if (requestId) {
+        this.sendAjaxResponse(requestId, true, { task: updatedTask });
+      }
+      
+      const currentTaskId = this.todoManager.getTodoState().currentTaskId;
+      this.panel.webview.postMessage({
+        command: 'taskUpdated',
+        task: updatedTask,
+        currentTaskId
+      });
+      
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to update task';
-      vscode.window.showErrorMessage(errorMessage);
+      
+      if (requestId) {
+        this.sendAjaxResponse(requestId, false, null, errorMessage);
+      } else {
+        vscode.window.showErrorMessage(errorMessage);
+      }
     }
   }
 
-  private async handleCompleteTask(taskId: string): Promise<void> {
+  private async handleCompleteTask(taskId: string, requestId?: string): Promise<void> {
     try {
-      await this.todoManager.completeTask(taskId);
-      this.sendTodoUpdate();
+      const completedTask = await this.todoManager.completeTask(taskId);
+      
+      if (requestId) {
+        this.sendAjaxResponse(requestId, true, { task: completedTask });
+      }
+      
+      const currentTaskId = this.todoManager.getTodoState().currentTaskId;
+      this.panel.webview.postMessage({
+        command: 'taskUpdated',
+        task: completedTask,
+        currentTaskId
+      });
+      
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to complete task';
-      vscode.window.showErrorMessage(errorMessage);
+      
+      if (requestId) {
+        this.sendAjaxResponse(requestId, false, null, errorMessage);
+      } else {
+        vscode.window.showErrorMessage(errorMessage);
+      }
     }
   }
 
-  private async handleDeleteTask(taskId: string): Promise<void> {
+  private async handleDeleteTask(taskId: string, requestId?: string): Promise<void> {
     try {
       await this.todoManager.deleteTask(taskId);
-      this.sendTodoUpdate();
+      
+      if (requestId) {
+        this.sendAjaxResponse(requestId, true, { taskId });
+      }
+      
+      const todoState = this.todoManager.getTodoState();
+      this.panel.webview.postMessage({
+        command: 'taskDeleted',
+        taskId,
+        currentTaskId: todoState.currentTaskId,
+        tasks: todoState.tasks
+      });
+      
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to delete task';
-      vscode.window.showErrorMessage(errorMessage);
+      
+      if (requestId) {
+        this.sendAjaxResponse(requestId, false, null, errorMessage);
+      } else {
+        vscode.window.showErrorMessage(errorMessage);
+      }
     }
   }
 
-  private async handleSetCurrentTask(taskId: string): Promise<void> {
+  private async handleSetCurrentTask(taskId: string, requestId?: string): Promise<void> {
     try {
       await this.todoManager.setCurrentTask(taskId);
-      this.sendTodoUpdate();
+      
+      if (requestId) {
+        this.sendAjaxResponse(requestId, true, { taskId });
+      }
+      
+      const todoState = this.todoManager.getTodoState();
+      this.panel.webview.postMessage({
+        command: 'taskSelected',
+        taskId,
+        tasks: todoState.tasks
+      });
+      
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to set current task';
-      vscode.window.showErrorMessage(errorMessage);
+      
+      if (requestId) {
+        this.sendAjaxResponse(requestId, false, null, errorMessage);
+      } else {
+        vscode.window.showErrorMessage(errorMessage);
+      }
     }
   }
 
-  private async handleClearCurrentTask(): Promise<void> {
+  private async handleClearCurrentTask(requestId?: string): Promise<void> {
     try {
       await this.todoManager.clearCurrentTask();
-      this.sendTodoUpdate();
+      
+      if (requestId) {
+        this.sendAjaxResponse(requestId, true, { taskId: null });
+      }
+      
+      this.panel.webview.postMessage({
+        command: 'taskSelected',
+        taskId: null,
+        tasks: this.todoManager.getTodoState().tasks
+      });
+      
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to clear current task';
-      vscode.window.showErrorMessage(errorMessage);
+      
+      if (requestId) {
+        this.sendAjaxResponse(requestId, false, null, errorMessage);
+      } else {
+        vscode.window.showErrorMessage(errorMessage);
+      }
     }
   }
 
@@ -313,11 +415,22 @@ export class PomodoroPanel {
     }
   }
 
+  private sendAjaxResponse(requestId: string, success: boolean, data: any = null, error?: string): void {
+    if (this.panel.webview) {
+      this.panel.webview.postMessage({
+        requestId,
+        success,
+        data,
+        error
+      });
+    }
+  }
+
   public updateSession(session: PomodoroSession): void {
     this.currentSession = session;
     this.update();
 
-    // Send session data to webview for real-time updates
+    // Send session data to webview for real-time updates (WITHOUT todoState to prevent re-renders)
     if (this.panel.webview && !this.isSettingsView) {
       this.panel.webview.postMessage({
         command: 'updateSession',
@@ -325,7 +438,7 @@ export class PomodoroPanel {
         isTimerActive:
           session.state !== PomodoroState.IDLE &&
           session.state !== PomodoroState.PAUSED,
-        todoState: this.todoManager.getTodoState(),
+        // todoState removed - now handled by targeted AJAX events
       });
     }
   }

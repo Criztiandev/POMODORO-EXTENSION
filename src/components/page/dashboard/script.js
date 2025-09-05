@@ -178,38 +178,40 @@ function handleModalOverlayClick(event) {
 let selectTaskTimeout = null;
 let isProcessingSelection = false;
 
-function toggleTask(taskId, completed) {
+async function toggleTask(taskId, completed) {
   console.log('toggleTask called with:', taskId, completed);
 
-  if (completed) {
-    vscode.postMessage({
-      command: 'completeTask',
-      taskId: taskId,
-    });
-  } else {
-    vscode.postMessage({
-      command: 'updateTask',
-      taskId: taskId,
-      updates: { completed: false },
-    });
+  try {
+    if (completed) {
+      await messageHandler.sendRequest('completeTask', { taskId });
+    } else {
+      await messageHandler.sendRequest('updateTask', {
+        taskId,
+        updates: { completed: false },
+      });
+    }
+  } catch (error) {
+    console.error('Failed to toggle task:', error);
+    // Rollback UI change
+    const checkbox = document.querySelector(
+      `[data-task-id="${taskId}"] .hidden-checkbox`
+    );
+    if (checkbox) {
+      checkbox.checked = !completed;
+    }
   }
 }
 
-function selectTask(taskId) {
+async function selectTask(taskId) {
   console.log('selectTask called with:', taskId);
   if (isProcessingSelection) {
     return;
   }
 
-  if (selectTaskTimeout) {
-    clearTimeout(selectTaskTimeout);
-  }
+  // Set processing flag immediately for instant feedback
+  isProcessingSelection = true;
 
-  // Set processing flag and debounce the action
-  selectTaskTimeout = setTimeout(() => {
-    isProcessingSelection = true;
-
-    try {
+  try {
       // Check if clicking on already selected task should deselect it
       const selectedItem = document.querySelector(`[data-task-id="${taskId}"]`);
 
@@ -225,32 +227,57 @@ function selectTask(taskId) {
       console.log('isCurrentlySelected:', isCurrentlySelected);
       console.log('selectedItem:', selectedItem);
 
-      // Clear all selections for clean state
-      document.querySelectorAll('.task-item').forEach((item) => {
-        item.classList.remove('current');
-      });
-
       if (!isCurrentlySelected) {
-        // Select new task
-        selectedItem.classList.add('current');
-        vscode.postMessage({
-          command: 'setCurrentTask',
-          taskId: taskId,
-        });
+        // INSTANT optimistic update - no delay
+        taskRenderer.selectTaskInDOM(taskId);
+        
+        // Update current task display immediately
+        const taskElement = selectedItem;
+        const titleElement = taskElement.querySelector('.task-title');
+        const descElement = taskElement.querySelector('.task-description');
+        
+        const currentTask = {
+          id: taskId,
+          title: titleElement?.textContent || '',
+          description: descElement?.textContent || ''
+        };
+        updateCurrentTaskDisplay(currentTask);
+        
+        // Background sync with server
+        try {
+          await messageHandler.sendRequest('setCurrentTask', { taskId });
+        } catch (error) {
+          console.error('Failed to select task:', error);
+          // Rollback on error
+          taskRenderer.selectTaskInDOM(null);
+          updateCurrentTaskDisplay(null);
+        }
       } else {
-        // Deselect current task - clear UI displays immediately
-        clearCurrentTaskDisplay();
-        vscode.postMessage({
-          command: 'clearCurrentTask',
-        });
+        // INSTANT deselect - no delay
+        taskRenderer.selectTaskInDOM(null);
+        updateCurrentTaskDisplay(null);
+        
+        // Background sync with server
+        try {
+          await messageHandler.sendRequest('clearCurrentTask');
+        } catch (error) {
+          console.error('Failed to clear current task:', error);
+          // Rollback on error
+          taskRenderer.selectTaskInDOM(taskId);
+          const currentTask = {
+            id: taskId,
+            title: selectedItem.querySelector('.task-title')?.textContent || '',
+            description: selectedItem.querySelector('.task-description')?.textContent || ''
+          };
+          updateCurrentTaskDisplay(currentTask);
+        }
       }
-    } finally {
-      // Reset processing flag after a short delay to allow backend processing
-      setTimeout(() => {
-        isProcessingSelection = false;
-      }, 100);
-    }
-  }, 200); // 200ms debounce delay
+  } finally {
+    // Reset processing flag after a short delay
+    setTimeout(() => {
+      isProcessingSelection = false;
+    }, 100);
+  }
 }
 
 function clearCurrentTaskDisplay() {
@@ -261,12 +288,20 @@ function clearCurrentTaskDisplay() {
   }
 }
 
-function deleteTask(taskId) {
-  if (confirm('Are you sure you want to delete this task?')) {
-    vscode.postMessage({
-      command: 'deleteTask',
-      taskId: taskId,
-    });
+async function deleteTask(taskId) {
+  if (!confirm('Are you sure you want to delete this task?')) {
+    return;
+  }
+
+  // Optimistic update - remove from DOM immediately
+  taskRenderer.removeTaskFromDOM(taskId);
+
+  try {
+    await messageHandler.sendRequest('deleteTask', { taskId });
+  } catch (error) {
+    console.error('Failed to delete task:', error);
+    // For now, trigger a full refresh on error
+    vscode.postMessage({ command: 'refreshPanel' });
   }
 }
 
@@ -524,31 +559,463 @@ document.addEventListener('keydown', function (e) {
 // Listen for messages from extension
 window.addEventListener('message', (event) => {
   const message = event.data;
+
+  // Handle AJAX-style responses first
+  if (messageHandler.handleResponse(message)) {
+    return; // Response handled, don't process further
+  }
+
+  // Handle targeted task events
+  if (message.command === 'taskCreated' && message.task) {
+    taskRenderer.addTaskToDOM(message.task, message.currentTaskId);
+    if (message.currentTaskId === message.task.id) {
+      updateCurrentTaskDisplay(message.task);
+    }
+    return;
+  }
+
+  if (message.command === 'taskDeleted' && message.taskId) {
+    taskRenderer.removeTaskFromDOM(message.taskId);
+    if (message.currentTaskId) {
+      const currentTask = message.tasks?.find(
+        (t) => t.id === message.currentTaskId
+      );
+      updateCurrentTaskDisplay(currentTask);
+    } else {
+      updateCurrentTaskDisplay(null);
+    }
+    return;
+  }
+
+  if (message.command === 'taskUpdated' && message.task) {
+    taskRenderer.updateTaskInDOM(
+      message.task.id,
+      message.task,
+      message.currentTaskId
+    );
+    if (message.currentTaskId === message.task.id) {
+      updateCurrentTaskDisplay(message.task);
+    }
+    return;
+  }
+
+  if (message.command === 'taskSelected') {
+    // Only update if not currently processing selection (to avoid overriding optimistic updates)
+    if (!isProcessingSelection) {
+      taskRenderer.selectTaskInDOM(message.taskId);
+      const currentTask = message.tasks?.find((t) => t.id === message.taskId);
+      updateCurrentTaskDisplay(currentTask);
+    }
+    return;
+  }
+
+  // Handle traditional timer updates (no todoState to prevent re-renders)
   if (message.command === 'updateSession') {
     debounce(
       'updateUI',
       () => {
         updateUI(message.session, message.isTimerActive);
-        if (message.todoState) {
-          updateTodoUI(message.todoState);
-        }
+        // todoState updates now handled by targeted events above
       },
       50
     );
   } else if (message.command === 'sessionComplete') {
     updateUI(message.session, false);
   } else if (message.command === 'updateTodos') {
+    // Legacy full-state update - only used as fallback
     debounce(
       'updateTodos',
       () => {
+        console.warn(
+          'Using legacy full-state update - should use targeted events instead'
+        );
         updateTodoUI(message.todoState);
       },
       100
     );
   } else if (message.command === 'cleanup') {
     cleanupManager.cleanup();
+    messageHandler.cleanup();
   }
 });
+
+// =========================================================================
+// ===== AJAX-Style Messaging System ======================================
+// =========================================================================
+
+// Request/Response messaging system for real-time updates
+class MessageHandler {
+  constructor() {
+    this.pendingRequests = new Map();
+    this.requestCounter = 0;
+  }
+
+  generateRequestId() {
+    return `req_${Date.now()}_${++this.requestCounter}`;
+  }
+
+  sendRequest(command, data = {}) {
+    return new Promise((resolve, reject) => {
+      const requestId = this.generateRequestId();
+
+      // Store request promise handlers
+      this.pendingRequests.set(requestId, {
+        resolve,
+        reject,
+        timestamp: Date.now(),
+        command,
+      });
+
+      // Set timeout for request
+      setTimeout(() => {
+        if (this.pendingRequests.has(requestId)) {
+          this.pendingRequests.delete(requestId);
+          reject(new Error(`Request timeout for ${command}`));
+        }
+      }, 5000); // 5 second timeout
+
+      // Send message to VSCode extension
+      vscode.postMessage({
+        command,
+        requestId,
+        ...data,
+      });
+    });
+  }
+
+  handleResponse(message) {
+    const { requestId, success, data, error } = message;
+
+    if (!requestId || !this.pendingRequests.has(requestId)) {
+      return false; // Not a response to our request
+    }
+
+    const request = this.pendingRequests.get(requestId);
+    this.pendingRequests.delete(requestId);
+
+    if (success) {
+      request.resolve(data);
+    } else {
+      request.reject(new Error(error || 'Request failed'));
+    }
+
+    return true; // Response handled
+  }
+
+  // Clean up old pending requests
+  cleanup() {
+    const now = Date.now();
+    const timeout = 10000; // 10 seconds
+
+    for (const [requestId, request] of this.pendingRequests.entries()) {
+      if (now - request.timestamp > timeout) {
+        request.reject(new Error(`Request timeout for ${request.command}`));
+        this.pendingRequests.delete(requestId);
+      }
+    }
+  }
+}
+
+// Global message handler instance
+const messageHandler = new MessageHandler();
+
+// Task Renderer for targeted DOM manipulation
+class TaskRenderer {
+  constructor() {
+    this.taskListElement = null;
+  }
+
+  init() {
+    this.taskListElement = document.getElementById('taskList');
+    if (!this.taskListElement) {
+      console.error('Task list element not found');
+    }
+  }
+
+  createTaskElement(task, currentTaskId = null) {
+    const isCurrent = task.id === currentTaskId && !task.completed;
+
+    const taskDiv = document.createElement('div');
+    taskDiv.className =
+      `task-item ${task.completed ? 'completed' : ''} ${isCurrent ? 'current' : ''}`.trim();
+    taskDiv.dataset.taskId = task.id;
+    
+    // Make entire task item clickable
+    taskDiv.addEventListener('click', () => this.handleTaskSelect(task.id));
+
+    // Create task main container
+    const taskMain = document.createElement('div');
+    taskMain.className = 'task-main';
+    taskMain.style.cssText = 'display: flex; gap: 16px;';
+
+    // Create circular checkbox container (matching EJS template)
+    const checkboxContainer = document.createElement('label');
+    checkboxContainer.className = 'circle-checkbox-container';
+    checkboxContainer.addEventListener('click', (e) => e.stopPropagation());
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'hidden-checkbox';
+    checkbox.checked = task.completed;
+    checkbox.addEventListener('change', () =>
+      this.handleTaskToggle(task.id, checkbox.checked)
+    );
+
+    const checkmark = document.createElement('span');
+    checkmark.className = 'checkmark';
+
+    checkboxContainer.appendChild(checkbox);
+    checkboxContainer.appendChild(checkmark);
+
+    // Create content div
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'task-content';
+
+    // Create title
+    const titleDiv = document.createElement('div');
+    titleDiv.className =
+      `task-title ${task.completed ? 'completed' : ''}`.trim();
+    titleDiv.textContent = task.title;
+    contentDiv.appendChild(titleDiv);
+
+    // Add description if available
+    if (task.description) {
+      const descDiv = document.createElement('div');
+      descDiv.className = 'task-description';
+      descDiv.style.fontWeight = '400';
+      descDiv.textContent = task.description;
+      contentDiv.appendChild(descDiv);
+    }
+
+    // Add meta information if available
+    if (task.estimatedPomodoros || task.estimatedMinutes) {
+      const metaDiv = document.createElement('div');
+      metaDiv.className = 'task-meta';
+
+      let metaText = '';
+      if (task.estimatedPomodoros) {
+        metaText += `${task.estimatedPomodoros} pomodoros`;
+      }
+      if (task.estimatedMinutes) {
+        metaText += `${metaText ? ' ' : ''}${task.estimatedMinutes} min`;
+      }
+
+      metaDiv.textContent = metaText;
+      contentDiv.appendChild(metaDiv);
+    }
+
+    // Assemble task main
+    taskMain.appendChild(checkboxContainer);
+    taskMain.appendChild(contentDiv);
+
+    // Create actions div
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'task-actions';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'task-action-btn';
+    deleteBtn.title = 'Delete Task';
+    deleteBtn.textContent = '×';
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.handleTaskDelete(task.id);
+    });
+
+    actionsDiv.appendChild(deleteBtn);
+
+    // Assemble task element
+    taskDiv.appendChild(taskMain);
+    taskDiv.appendChild(actionsDiv);
+
+    return taskDiv;
+  }
+
+  addTaskToDOM(task, currentTaskId = null) {
+    if (!this.taskListElement) {
+      return;
+    }
+
+    // Check if empty state exists and remove it
+    const emptyState = this.taskListElement.querySelector('.empty-state');
+    if (emptyState) {
+      emptyState.remove();
+    }
+
+    const taskElement = this.createTaskElement(task, currentTaskId);
+
+    // Add with animation
+    taskElement.style.opacity = '0';
+    taskElement.style.transform = 'translateY(-10px)';
+    this.taskListElement.appendChild(taskElement);
+
+    this.updateTodoActionsVisibility();
+  }
+
+  removeTaskFromDOM(taskId) {
+    const taskElement = this.taskListElement?.querySelector(
+      `[data-task-id="${taskId}"]`
+    );
+    if (!taskElement) {
+      return;
+    }
+
+    setTimeout(() => {
+      taskElement.remove();
+      this.checkForEmptyState();
+      this.updateTodoActionsVisibility();
+    }, 300);
+  }
+
+  updateTaskInDOM(taskId, updates, currentTaskId = null) {
+    const taskElement = this.taskListElement?.querySelector(
+      `[data-task-id="${taskId}"]`
+    );
+    if (!taskElement) {
+      return;
+    }
+
+    // Update classes
+    const isCurrent = taskId === currentTaskId && !updates.completed;
+    taskElement.className =
+      `task-item ${updates.completed ? 'completed' : ''} ${isCurrent ? 'current' : ''}`.trim();
+
+    // Update checkbox
+    const checkbox = taskElement.querySelector('.hidden-checkbox');
+    if (checkbox && updates.completed !== undefined) {
+      checkbox.checked = updates.completed;
+    }
+
+    // Update title
+    if (updates.title) {
+      const titleElement = taskElement.querySelector('.task-title');
+      if (titleElement) {
+        titleElement.textContent = updates.title;
+        titleElement.className =
+          `task-title ${updates.completed ? 'completed' : ''}`.trim();
+      }
+    }
+
+    // Update description
+    if (updates.description !== undefined) {
+      let descElement = taskElement.querySelector('.task-description');
+      if (updates.description) {
+        if (!descElement) {
+          // Create description element
+          descElement = document.createElement('div');
+          descElement.className = 'task-description';
+          descElement.style.fontWeight = '400';
+          const contentDiv = taskElement.querySelector('.task-content');
+          const titleDiv = contentDiv.querySelector('.task-title');
+          contentDiv.insertBefore(descElement, titleDiv.nextSibling);
+        }
+        descElement.textContent = updates.description;
+        descElement.style.display = 'block';
+      } else if (descElement) {
+        descElement.remove();
+      }
+    }
+  }
+
+  selectTaskInDOM(taskId) {
+    // Remove current selection
+    this.taskListElement
+      ?.querySelectorAll('.task-item.current')
+      .forEach((item) => {
+        item.classList.remove('current');
+      });
+
+    // Add new selection
+    if (taskId) {
+      const taskElement = this.taskListElement?.querySelector(
+        `[data-task-id="${taskId}"]`
+      );
+      if (taskElement) {
+        taskElement.classList.add('current');
+      }
+    }
+  }
+
+  checkForEmptyState() {
+    if (!this.taskListElement) {
+      return;
+    }
+
+    const taskItems = this.taskListElement.querySelectorAll('.task-item');
+    if (taskItems.length === 0) {
+      const emptyState = document.createElement('div');
+      emptyState.className = 'empty-state';
+      emptyState.textContent =
+        'No tasks yet. Create your first task to get started! 🎯';
+      this.taskListElement.appendChild(emptyState);
+    }
+  }
+
+  updateTodoActionsVisibility() {
+    const todoActions = document.querySelector('.todo-actions');
+    const hasActiveTasks =
+      this.taskListElement?.querySelectorAll('.task-item').length > 0;
+
+    if (todoActions) {
+      todoActions.style.display = hasActiveTasks ? 'block' : 'none';
+    }
+  }
+
+  // Event handlers that will use the message system
+  async handleTaskToggle(taskId, completed) {
+    try {
+      if (completed) {
+        await messageHandler.sendRequest('completeTask', { taskId });
+      } else {
+        await messageHandler.sendRequest('updateTask', {
+          taskId,
+          updates: { completed: false },
+        });
+      }
+    } catch (error) {
+      console.error('Failed to toggle task:', error);
+      // Rollback UI change
+      const checkbox = this.taskListElement?.querySelector(
+        `[data-task-id="${taskId}"] .hidden-checkbox`
+      );
+      if (checkbox) {
+        checkbox.checked = !completed;
+      }
+    }
+  }
+
+  async handleTaskSelect(taskId) {
+    // Optimistic update
+    this.selectTaskInDOM(taskId);
+
+    try {
+      await messageHandler.sendRequest('setCurrentTask', { taskId });
+    } catch (error) {
+      console.error('Failed to select task:', error);
+      // Could implement more sophisticated rollback here
+    }
+  }
+
+  async handleTaskDelete(taskId) {
+    if (!confirm('Are you sure you want to delete this task?')) {
+      return;
+    }
+
+    // Optimistic update
+    this.removeTaskFromDOM(taskId);
+
+    try {
+      await messageHandler.sendRequest('deleteTask', { taskId });
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+      // Would need to restore the task element here
+      // For now, let's trigger a full refresh
+      vscode.postMessage({ command: 'refreshPanel' });
+    }
+  }
+}
+
+// Global task renderer instance
+const taskRenderer = new TaskRenderer();
 
 // =========================================================================
 // ===== Utility Functions ================================================
@@ -631,6 +1098,7 @@ window.addEventListener('unload', () => {
 // Initialize everything when DOM is ready
 function initializeApp() {
   domCache.init();
+  taskRenderer.init();
 
   // Form handling with debounced input
   const titleInput = domCache.getById('taskTitle');
@@ -663,6 +1131,11 @@ function initializeApp() {
       }
     });
   }
+
+  // Clean up pending requests periodically
+  setInterval(() => {
+    messageHandler.cleanup();
+  }, 30000); // Every 30 seconds
 }
 
 // Initialize when DOM is loaded
@@ -672,10 +1145,10 @@ if (document.readyState === 'loading') {
   initializeApp();
 }
 
-// Form submission handling
+// Form submission handling with AJAX-style updates
 document
   .getElementById('createTaskForm')
-  .addEventListener('submit', function (e) {
+  .addEventListener('submit', async function (e) {
     e.preventDefault();
 
     const title = document.getElementById('taskTitle').value.trim();
@@ -701,10 +1174,14 @@ document
       task.estimatedMinutes = estimateValue;
     }
 
-    vscode.postMessage({
-      command: 'createTask',
-      task: task,
-    });
+    try {
+      // Use the new AJAX-style messaging
+      const result = await messageHandler.sendRequest('createTask', { task });
 
-    hideCreateTaskModal();
+      // Task will be added to DOM via the 'taskCreated' event
+      hideCreateTaskModal();
+    } catch (error) {
+      console.error('Failed to create task:', error);
+      alert('Failed to create task. Please try again.');
+    }
   });
