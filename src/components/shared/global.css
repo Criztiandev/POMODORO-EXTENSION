@@ -156,3 +156,8 @@ button[aria-invalid='true'] {
     box-shadow: 0 0 0 3px rgba(var(--destructive), 0.4); /* Translating dark:aria-invalid:ring-destructive/40 */
   }
 }
+
+input {
+  font-family: 'Poppins', var(--vscode-font-family);
+  border-radius: 4px;
+}

@@ -63,6 +63,7 @@ function updateUI(session, isTimerActive = false) {
   }
 
   // Update button text - fix the logic for skip vs pause
+  // The start overide the svg icon this needs to be fixed
   const controlBtn = document.querySelector('.control-btn');
   if (controlBtn) {
     let buttonText;
@@ -71,10 +72,7 @@ function updateUI(session, isTimerActive = false) {
     } else if (isTimerActive) {
       buttonText = 'Pause';
     } else if (session.state === 'paused') {
-      // Check if we just skipped or truly paused
-      // After skip, we want "Start", after pause we want "Resume"
-      // We'll determine this by checking if timer was just skipped
-      buttonText = 'Start'; // Always show Start after skip/pause for now
+      buttonText = 'Start';
     } else {
       buttonText = 'Start';
     }
@@ -175,10 +173,16 @@ function handleModalOverlayClick(event) {
 // =========================================================================
 
 async function toggleTask(taskId, completed) {
-  console.log('toggleTask called with:', taskId, completed);
-
   try {
     if (completed) {
+      // Auto-deselect task if it's currently selected and being completed
+      const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
+      if (taskElement && taskElement.classList.contains('current')) {
+        taskRenderer.selectTaskInDOM(null);
+        updateCurrentTaskDisplay(null);
+        vscode.postMessage({ command: 'refreshStatusBar' });
+        messageHandler.sendRequest('clearCurrentTask').catch(console.error);
+      }
       await messageHandler.sendRequest('completeTask', { taskId });
     } else {
       await messageHandler.sendRequest('updateTask', {
@@ -199,65 +203,66 @@ async function toggleTask(taskId, completed) {
 }
 
 function selectTask(taskId) {
-  console.log('selectTask called with:', taskId);
-  
-  // Check if clicking on already selected task should deselect it
   const selectedItem = document.querySelector(`[data-task-id="${taskId}"]`);
 
-  // Add null check for selectedItem
   if (!selectedItem) {
     console.error('No element found with data-task-id:', taskId);
     return;
   }
 
+  // Prevent selecting completed tasks
+  if (selectedItem.classList.contains('completed')) {
+    console.log('Cannot select completed task:', taskId);
+    return;
+  }
+
   const isCurrentlySelected = selectedItem.classList.contains('current');
 
-  console.log('taskId:', taskId, 'isCurrentlySelected:', isCurrentlySelected);
-
   if (!isCurrentlySelected) {
-    // INSTANT optimistic update - no delays, no blocking
     taskRenderer.selectTaskInDOM(taskId);
-    
-    // Update current task display immediately
+
     const titleElement = selectedItem.querySelector('.task-title');
     const descElement = selectedItem.querySelector('.task-description');
-    
+
     const currentTask = {
       id: taskId,
       title: titleElement?.textContent || '',
-      description: descElement?.textContent || ''
+      description: descElement?.textContent || '',
     };
     updateCurrentTaskDisplay(currentTask);
-    
-    // Background sync with server (no await - fire and forget)
-    messageHandler.sendRequest('setCurrentTask', { taskId }).catch(error => {
-      console.error('Failed to select task:', error);
-      // Rollback on error
+
+    // Immediately refresh status bar
+    vscode.postMessage({ command: 'refreshStatusBar' });
+
+    messageHandler.sendRequest('setCurrentTask', { taskId }).catch((error) => {
       taskRenderer.selectTaskInDOM(null);
       updateCurrentTaskDisplay(null);
+      // Refresh status bar on rollback too
+      vscode.postMessage({ command: 'refreshStatusBar' });
     });
   } else {
-    // INSTANT deselect - no delays, no blocking
     taskRenderer.selectTaskInDOM(null);
     updateCurrentTaskDisplay(null);
-    
-    // Background sync with server (no await - fire and forget)
-    messageHandler.sendRequest('clearCurrentTask').catch(error => {
-      console.error('Failed to clear current task:', error);
-      // Rollback on error
+
+    // Immediately refresh status bar
+    vscode.postMessage({ command: 'refreshStatusBar' });
+
+    messageHandler.sendRequest('clearCurrentTask').catch((error) => {
       taskRenderer.selectTaskInDOM(taskId);
       const currentTask = {
         id: taskId,
         title: selectedItem.querySelector('.task-title')?.textContent || '',
-        description: selectedItem.querySelector('.task-description')?.textContent || ''
+        description:
+          selectedItem.querySelector('.task-description')?.textContent || '',
       };
       updateCurrentTaskDisplay(currentTask);
+      // Refresh status bar on rollback too
+      vscode.postMessage({ command: 'refreshStatusBar' });
     });
   }
 }
 
 function clearCurrentTaskDisplay() {
-  // EJS template creates the working-on-display element, just hide it
   const workingOnDisplay = document.querySelector('.working-on-display');
   if (workingOnDisplay) {
     workingOnDisplay.style.display = 'none';
@@ -265,14 +270,12 @@ function clearCurrentTaskDisplay() {
 }
 
 async function deleteTask(taskId) {
-  // Optimistic update - remove from DOM immediately
+  // Optimistic update - remove fromDOM immediately
   taskRenderer.removeTaskFromDOM(taskId);
 
   try {
     await messageHandler.sendRequest('deleteTask', { taskId });
   } catch (error) {
-    console.error('Failed to delete task:', error);
-    // For now, trigger a full refresh on error
     vscode.postMessage({ command: 'refreshPanel' });
   }
 }
@@ -365,15 +368,11 @@ let previousState = {
 };
 
 function updateTodoUI(todoState) {
-  console.log('updateTodoUI called with:', todoState);
-
-  // Validate todoState before proceeding
   if (!todoState || !Array.isArray(todoState.tasks)) {
     console.warn('Invalid todoState provided to updateTodoUI');
     return;
   }
 
-  // Quick hash to detect if tasks actually changed
   const tasksHash = todoState.tasks
     .map((t) => `${t.id}-${t.completed}-${t.title}`)
     .join('|');
@@ -381,29 +380,25 @@ function updateTodoUI(todoState) {
   const hasCurrentTaskChanged =
     todoState.currentTaskId !== previousState.currentTaskId;
 
-  // Skip expensive updates if nothing changed
   if (!hasTasksChanged && !hasCurrentTaskChanged) {
     return;
   }
 
-  // Find current task with validation
   const currentTask = todoState.currentTaskId
     ? todoState.tasks.find(
         (t) => t.id === todoState.currentTaskId && !t.completed
       )
     : null;
 
-  // Only update current task display if it changed
   if (hasCurrentTaskChanged) {
     updateCurrentTaskDisplay(currentTask);
   }
 
-  // Only update task list if tasks changed
   if (hasTasksChanged) {
     updateTaskList(todoState);
+    checkAllTasksCompleted(todoState);
   }
 
-  // Update previous state
   previousState = {
     currentTaskId: todoState.currentTaskId,
     taskCount: todoState.tasks.length,
@@ -411,9 +406,100 @@ function updateTodoUI(todoState) {
   };
 }
 
+function checkAllTasksCompleted(todoState) {
+  const hasCompleted = todoState.tasks.some((task) => task.completed);
+  const allCompleted =
+    todoState.tasks.length > 0 &&
+    todoState.tasks.every((task) => task.completed);
+
+  if (allCompleted && hasCompleted) {
+    showAllTasksCompletedUI();
+  } else {
+    hideAllTasksCompletedUI();
+  }
+}
+
+function showAllTasksCompletedUI() {
+  // Check if banner already exists
+  let banner = document.querySelector('.all-tasks-completed-banner');
+  if (banner) {
+    return; // Already shown
+  }
+
+  // Create banner
+  banner = document.createElement('div');
+  banner.className = 'all-tasks-completed-banner';
+  banner.innerHTML = `
+    <div class="banner-content">
+      <h3>🎉 All Tasks Completed!</h3>
+      <p>Great job! You've completed all your tasks.</p>
+      <div class="banner-actions">
+        <button class="btn-primary" onclick="clearAllCompletedTasks()">Clear All Completed</button>
+        <button class="btn-secondary" onclick="startFresh()">Start Fresh</button>
+      </div>
+    </div>
+  `;
+
+  // Add CSS for the banner
+  const style = document.createElement('style');
+  style.textContent = `
+    .all-tasks-completed-banner {
+      background: linear-gradient(135deg, var(--vscode-button-background) 0%, var(--vscode-focusBorder) 100%);
+      color: var(--vscode-button-foreground);
+      padding: 16px;
+      margin: 16px 0;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .banner-content h3 {
+      margin: 0 0 8px 0;
+      font-size: 18px;
+    }
+    .banner-content p {
+      margin: 0 0 16px 0;
+      opacity: 0.9;
+    }
+    .banner-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+    .banner-actions button {
+      padding: 8px 16px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+    }
+  `;
+  document.head.appendChild(style);
+
+  // Insert banner before task list
+  const taskList = document.getElementById('taskList');
+  taskList.parentNode.insertBefore(banner, taskList);
+}
+
+function hideAllTasksCompletedUI() {
+  const banner = document.querySelector('.all-tasks-completed-banner');
+  if (banner) {
+    banner.remove();
+  }
+}
+
+function clearAllCompletedTasks() {
+  if (confirm('Are you sure you want to clear all completed tasks?')) {
+    vscode.postMessage({ command: 'clearCompletedTasks' });
+  }
+}
+
+function startFresh() {
+  if (confirm('Are you sure you want to delete all tasks and start fresh?')) {
+    vscode.postMessage({ command: 'clearAllTasks' });
+  }
+}
+
 function updateCurrentTaskDisplay(currentTask) {
-  // EJS template already creates the working-on-display element
-  // We just need to update its content and visibility
   const workingOnDisplay = document.querySelector('.working-on-display');
 
   if (currentTask && !currentTask.completed) {
@@ -432,9 +518,6 @@ function updateCurrentTaskDisplay(currentTask) {
 }
 
 function updateTaskList(todoState) {
-  // The EJS template already handles rendering the task list
-  // We just need to update the existing elements with current state
-
   const taskItems = document.querySelectorAll('.task-item');
   taskItems.forEach((item) => {
     const taskId = item.dataset.taskId;
@@ -532,13 +615,23 @@ document.addEventListener('keydown', function (e) {
 window.addEventListener('message', (event) => {
   const message = event.data;
 
-  // Handle AJAX-style responses first
-  if (messageHandler.handleResponse(message)) {
+  // Handle AJAX-style responses first (only if message has requestId)
+  if (message.requestId && messageHandler.handleResponse(message)) {
     return; // Response handled, don't process further
   }
 
   // Handle targeted task events
   if (message.command === 'taskCreated' && message.task) {
+    // Check if there's an optimistic task to replace
+    const optimisticTasks = Array.from(
+      document.querySelectorAll('[data-task-id^="temp_"]')
+    );
+    if (optimisticTasks.length > 0) {
+      // Replace the most recent optimistic task with the real one
+      const mostRecentOptimistic = optimisticTasks[optimisticTasks.length - 1];
+      taskRenderer.removeTaskFromDOM(mostRecentOptimistic.dataset.taskId);
+    }
+
     taskRenderer.addTaskToDOM(message.task, message.currentTaskId);
     if (message.currentTaskId === message.task.id) {
       updateCurrentTaskDisplay(message.task);
@@ -565,9 +658,13 @@ window.addEventListener('message', (event) => {
       message.task,
       message.currentTaskId
     );
+    // Reorder tasks if completion status changed
+    taskRenderer.reorderTasks();
     if (message.currentTaskId === message.task.id) {
       updateCurrentTaskDisplay(message.task);
     }
+    // Check if all tasks are completed (need to get current state)
+    // This will be handled by the main updateTodoUI when the backend sends full state
     return;
   }
 
@@ -603,6 +700,12 @@ window.addEventListener('message', (event) => {
       },
       100
     );
+  } else if (message.command === 'tasksCleared') {
+    // Handle clearing of completed tasks - force refresh
+    console.log('Handling tasksCleared event:', message.type);
+    // Force refresh by clearing previous state and updating
+    previousState = { currentTaskId: null, taskCount: 0, tasksHash: '' };
+    updateTodoUI(message.todoState);
   } else if (message.command === 'cleanup') {
     cleanupManager.cleanup();
     messageHandler.cleanup();
@@ -613,7 +716,6 @@ window.addEventListener('message', (event) => {
 // ===== AJAX-Style Messaging System ======================================
 // =========================================================================
 
-// Request/Response messaging system for real-time updates
 class MessageHandler {
   constructor() {
     this.pendingRequests = new Map();
@@ -628,8 +730,6 @@ class MessageHandler {
     return new Promise((resolve, reject) => {
       const requestId = this.generateRequestId();
 
-      console.log('[MessageHandler] Creating request:', { command, requestId, data });
-
       // Store request promise handlers
       this.pendingRequests.set(requestId, {
         resolve,
@@ -641,7 +741,6 @@ class MessageHandler {
       // Set timeout for request
       setTimeout(() => {
         if (this.pendingRequests.has(requestId)) {
-          console.log('[MessageHandler] Request timed out:', { command, requestId });
           this.pendingRequests.delete(requestId);
           reject(new Error(`Request timeout for ${command}`));
         }
@@ -653,7 +752,6 @@ class MessageHandler {
         requestId,
         ...data,
       };
-      console.log('[MessageHandler] Posting message to VSCode:', message);
       vscode.postMessage(message);
     });
   }
@@ -661,10 +759,7 @@ class MessageHandler {
   handleResponse(message) {
     const { requestId, success, data, error } = message;
 
-    console.log('[MessageHandler] Received response:', { requestId, success, data, error });
-
     if (!requestId || !this.pendingRequests.has(requestId)) {
-      console.log('[MessageHandler] No matching request found for:', requestId);
       return false; // Not a response to our request
     }
 
@@ -672,10 +767,12 @@ class MessageHandler {
     this.pendingRequests.delete(requestId);
 
     if (success) {
-      console.log('[MessageHandler] Request successful, resolving:', { requestId, data });
       request.resolve(data);
     } else {
-      console.log('[MessageHandler] Request failed, rejecting:', { requestId, error });
+      console.error(
+        `[MessageHandler] Request failed: ${request.command}`,
+        error
+      );
       request.reject(new Error(error || 'Request failed'));
     }
 
@@ -719,7 +816,7 @@ class TaskRenderer {
     taskDiv.className =
       `task-item ${task.completed ? 'completed' : ''} ${isCurrent ? 'current' : ''}`.trim();
     taskDiv.dataset.taskId = task.id;
-    
+
     // Make entire task item clickable
     taskDiv.addEventListener('click', () => this.handleTaskSelect(task.id));
 
@@ -973,22 +1070,40 @@ class TaskRenderer {
   }
 
   async handleTaskDelete(taskId) {
-    console.log('[TaskRenderer] Delete button clicked for task:', taskId);
-
-    console.log('[TaskRenderer] Starting optimistic DOM removal for task:', taskId);
     // Optimistic update
     this.removeTaskFromDOM(taskId);
 
     try {
-      console.log('[TaskRenderer] Sending delete request to backend for task:', taskId);
-      const response = await messageHandler.sendRequest('deleteTask', { taskId });
-      console.log('[TaskRenderer] Delete request successful:', response);
+      await messageHandler.sendRequest('deleteTask', { taskId });
     } catch (error) {
-      console.error('[TaskRenderer] Failed to delete task:', error);
-      // Would need to restore the task element here
-      // For now, let's trigger a full refresh
       vscode.postMessage({ command: 'refreshPanel' });
     }
+  }
+
+  reorderTasks() {
+    if (!this.taskListElement) {
+      return;
+    }
+
+    const tasks = Array.from(
+      this.taskListElement.querySelectorAll('.task-item')
+    );
+
+    // Sort: incomplete tasks first, completed tasks last
+    tasks.sort((a, b) => {
+      const aCompleted = a.classList.contains('completed');
+      const bCompleted = b.classList.contains('completed');
+
+      if (aCompleted !== bCompleted) {
+        return aCompleted ? 1 : -1; // Completed tasks go to bottom
+      }
+
+      // Maintain original order within same completion status
+      return 0;
+    });
+
+    // Reorder DOM elements
+    tasks.forEach((task) => this.taskListElement.appendChild(task));
   }
 }
 
@@ -1153,11 +1268,31 @@ document
     }
 
     try {
-      // Use the new AJAX-style messaging
-      const result = await messageHandler.sendRequest('createTask', { task });
+      // Generate optimistic task ID
+      const optimisticTaskId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      // Task will be added to DOM via the 'taskCreated' event
+      // Create optimistic task object
+      const optimisticTask = {
+        ...task,
+        id: optimisticTaskId,
+        completed: false,
+        createdAt: new Date(),
+      };
+
+      // Immediately hide modal and add task to UI
       hideCreateTaskModal();
+      taskRenderer.addTaskToDOM(optimisticTask, optimisticTask.id);
+
+      // Update current task display
+      updateCurrentTaskDisplay(optimisticTask);
+
+      // Send request to backend (don't await)
+      messageHandler.sendRequest('createTask', { task }).catch((error) => {
+        console.error('Failed to create task:', error);
+        // Remove optimistic task on error
+        taskRenderer.removeTaskFromDOM(optimisticTaskId);
+        alert('Failed to create task. Please try again.');
+      });
     } catch (error) {
       console.error('Failed to create task:', error);
       alert('Failed to create task. Please try again.');

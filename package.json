@@ -3,6 +3,7 @@
   "displayName": "Your Pomodoro",
   "description": "A simple and effective Pomodoro timer for VS Code to boost your productivity",
   "version": "0.0.1",
+  "publisher": "criztiandev",
   "engines": {
     "vscode": "^1.103.0"
   },

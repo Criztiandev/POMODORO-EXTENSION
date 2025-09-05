@@ -1,65 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pomodoro Settings</title>
-    <link rel="stylesheet" href="<%= globalStyleUri %>">
-    <link rel="stylesheet" href="<%= styleUri %>">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pomodoro Settings</title>
+  <link rel="stylesheet" href="<%= globalStyleUri %>">
+  <link rel="stylesheet" href="<%= styleUri %>">
 </head>
+
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>ô Pomodoro Settings</h1>
-            <button class="back-btn" onclick="showDashboard()">ê Dashboard</button>
-        </div>
-        
-        <% if (isTimerActive) { %>
-        <div class="warning">
-            † Settings cannot be changed while timer is running. Stop the timer to modify settings.
-        </div>
-        <% } %>
-        
-        <form id="settingsForm">
-            <div class="setting-group">
-                <label class="setting-label" for="workDuration">Pomodoro Duration (minutes)</label>
-                <input type="number" id="workDuration" class="setting-input" value="<%= settings.workDuration %>" min="1" max="60" <%= isTimerActive ? 'disabled' : '' %>>
-            </div>
-            
-            <div class="setting-group">
-                <label class="setting-label" for="shortBreakDuration">Short Break Duration (minutes)</label>
-                <input type="number" id="shortBreakDuration" class="setting-input" value="<%= settings.shortBreakDuration %>" min="1" max="30" <%= isTimerActive ? 'disabled' : '' %>>
-            </div>
-            
-            <div class="setting-group">
-                <label class="setting-label" for="longBreakDuration">Long Break Duration (minutes)</label>
-                <input type="number" id="longBreakDuration" class="setting-input" value="<%= settings.longBreakDuration %>" min="1" max="60" <%= isTimerActive ? 'disabled' : '' %>>
-            </div>
-            
-            <div class="setting-group">
-                <label class="setting-label">Hour Format</label>
-                <div class="checkbox-group">
-                    <input type="checkbox" id="hourFormat" class="checkbox" <%= settings.hourFormat ? 'checked' : '' %> <%= isTimerActive ? 'disabled' : '' %>>
-                    <label for="hourFormat">Use 24-hour format</label>
-                </div>
-                <div class="description">Currently using MM:SS format for timer display</div>
-            </div>
-            
-            <div class="setting-group">
-                <label class="setting-label">Notifications</label>
-                <div class="checkbox-group">
-                    <input type="checkbox" id="notificationEnabled" class="checkbox" <%= settings.notificationEnabled ? 'checked' : '' %> <%= isTimerActive ? 'disabled' : '' %>>
-                    <label for="notificationEnabled">Enable notifications when sessions complete</label>
-                </div>
-                <div class="description">Shows system notifications when work sessions and breaks end</div>
-            </div>
-            
-            <button type="submit" class="save-btn" <%= isTimerActive ? 'disabled' : '' %>>
-                <%= isTimerActive ? 'Timer Running - Stop to Save' : 'Save Settings' %>
-            </button>
-        </form>
+  <div class="container">
+    <div class="header">
+      <h1 style="display: flex; align-items: center; gap: 8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings2-icon lucide-settings-2" style="width: 32px; height: 32px; margin-right: 8px;">
+          <path d="M14 17H5" />
+          <path d="M19 7h-9" />
+          <circle cx="17" cy="17" r="3" />
+          <circle cx="7" cy="7" r="3" />
+        </svg>
+        Pomodoro Settings
+      </h1>
+      <button class="back-btn" onclick="showDashboard()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-left-icon lucide-arrow-left" style="width: 18px; height: 18px;">
+          <path d="m12 19-7-7 7-7" />
+          <path d="M19 12H5" />
+        </svg>
+
+        Back
+      </button>
     </div>
-    
-    <script src="<%= scriptUri %>"></script>
+
+    <% if (isTimerActive) { %>
+    <div class="warning">
+      ÔøΩ Settings cannot be changed while timer is running. Stop the timer to modify settings.
+    </div>
+    <% } %>
+
+    <form id="settingsForm">
+      <div class="setting-group">
+        <label class="setting-label" for="workDuration">Pomodoro Duration (minutes)</label>
+        <input type="number" id="workDuration" class="setting-input" value="<%= settings.workDuration %>" min="1" max="60" <%= isTimerActive ? 'disabled' : '' %>>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label" for="shortBreakDuration">Short Break Duration (minutes)</label>
+        <input type="number" id="shortBreakDuration" class="setting-input" value="<%= settings.shortBreakDuration %>" min="1" max="30" <%= isTimerActive ? 'disabled' : '' %>>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label" for="longBreakDuration">Long Break Duration (minutes)</label>
+        <input type="number" id="longBreakDuration" class="setting-input" value="<%= settings.longBreakDuration %>" min="1" max="60" <%= isTimerActive ? 'disabled' : '' %>>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">Hour Format</label>
+        <div class="checkbox-group">
+          <input type="checkbox" id="hourFormat" class="checkbox" <%= settings.hourFormat ? 'checked' : '' %> <%= isTimerActive ? 'disabled' : '' %>>
+          <label for="hourFormat">Use 24-hour format</label>
+        </div>
+        <div class="description">Currently using MM:SS format for timer display</div>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-label">Notifications</label>
+        <div class="checkbox-group">
+          <input type="checkbox" id="notificationEnabled" class="checkbox" <%= settings.notificationEnabled ? 'checked' : '' %> <%= isTimerActive ? 'disabled' : '' %>>
+          <label for="notificationEnabled">Enable notifications when sessions complete</label>
+        </div>
+        <div class="description">Shows system notifications when work sessions and breaks end</div>
+      </div>
+
+      <button type="submit" class="save-btn" <%= isTimerActive ? 'disabled' : '' %>>
+        <%= isTimerActive ? 'Timer Running - Stop to Save' : 'Save Settings' %>
+      </button>
+    </form>
+  </div>
+
+  <script src="<%= scriptUri %>"></script>
 </body>
+
 </html>

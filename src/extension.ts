@@ -11,16 +11,14 @@ let statusBarManager: StatusBarManager;
 let todoManager: TodoManager;
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('Pomodoro extension is now active!');
-
-  // Initialize components
   pomodoroTimer = new PomodoroTimer();
   statusBarManager = new StatusBarManager();
   todoManager = TodoManager.getInstance();
 
   // Set up event listeners
   pomodoroTimer.on('stateChanged', (session: PomodoroSession) => {
-    statusBarManager.updateStatusBar(session);
+    const currentTask = todoManager.getCurrentTask();
+    statusBarManager.updateStatusBar(session, currentTask?.title);
     // Update panel if it's open
     if (PomodoroPanel.currentPanel) {
       PomodoroPanel.currentPanel.updateSession(session);
@@ -28,7 +26,8 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   pomodoroTimer.on('tick', (session: PomodoroSession) => {
-    statusBarManager.updateStatusBar(session);
+    const currentTask = todoManager.getCurrentTask();
+    statusBarManager.updateStatusBar(session, currentTask?.title);
     // Update panel if it's open
     if (PomodoroPanel.currentPanel) {
       PomodoroPanel.currentPanel.updateSession(session);
@@ -152,7 +151,8 @@ export function activate(context: vscode.ExtensionContext) {
       
       // Force UI refresh with current session and new settings
       const currentSession = pomodoroTimer.getSession();
-      statusBarManager.updateStatusBar(currentSession);
+      const currentTask = todoManager.getCurrentTask();
+      statusBarManager.updateStatusBar(currentSession, currentTask?.title);
       
       // Update panel if it's open
       if (PomodoroPanel.currentPanel) {
@@ -175,6 +175,15 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const refreshStatusBarCommand = vscode.commands.registerCommand(
+    'pomodoro.refreshStatusBar',
+    () => {
+      const currentSession = pomodoroTimer.getSession();
+      const currentTask = todoManager.getCurrentTask();
+      statusBarManager.updateStatusBar(currentSession, currentTask?.title);
+    }
+  );
+
   // Add to context subscriptions
   context.subscriptions.push(
     startCommand,
@@ -186,6 +195,7 @@ export function activate(context: vscode.ExtensionContext) {
     updateSettingsCommand,
     isTimerActiveCommand,
     switchSessionCommand,
+    refreshStatusBarCommand,
     statusBarManager
   );
 }

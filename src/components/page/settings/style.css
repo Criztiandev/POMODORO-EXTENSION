@@ -17,6 +17,11 @@
   padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
 }
 .back-btn:hover {
   background: var(--vscode-button-secondaryHoverBackground);
@@ -69,7 +74,7 @@
   background: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
   border: none;
-  padding: 12px 24px;
+  padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 16px;

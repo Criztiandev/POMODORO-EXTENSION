@@ -28,23 +28,49 @@ export class PomodoroPanel {
     );
   }
 
-  private getStyleUri(webview: vscode.Webview, templateName: string = 'dashboard'): vscode.Uri {
+  private getStyleUri(
+    webview: vscode.Webview,
+    templateName: string = 'dashboard'
+  ): vscode.Uri {
     const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'src', 'components', 'page', templateName, 'style.css')
+      vscode.Uri.joinPath(
+        this.extensionUri,
+        'src',
+        'components',
+        'page',
+        templateName,
+        'style.css'
+      )
     );
     return styleUri;
   }
 
   private getGlobalStyleUri(webview: vscode.Webview): vscode.Uri {
     const globalStyleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'src', 'components', 'shared', 'global.css')
+      vscode.Uri.joinPath(
+        this.extensionUri,
+        'src',
+        'components',
+        'shared',
+        'global.css'
+      )
     );
     return globalStyleUri;
   }
 
-  private getScriptUri(webview: vscode.Webview, templateName: string = 'dashboard'): vscode.Uri {
+  private getScriptUri(
+    webview: vscode.Webview,
+    templateName: string = 'dashboard'
+  ): vscode.Uri {
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'src', 'components', 'page', templateName, 'script.js')
+      vscode.Uri.joinPath(
+        this.extensionUri,
+        'src',
+        'components',
+        'page',
+        templateName,
+        'script.js'
+      )
     );
     return scriptUri;
   }
@@ -95,7 +121,6 @@ export class PomodoroPanel {
     // Handle messages from webview
     this.panel.webview.onDidReceiveMessage(
       (message) => {
-        console.log('[PomodoroPanel] Received message:', message);
         switch (message.command) {
           case 'toggleTimer':
             vscode.commands.executeCommand('pomodoro.toggleTimer');
@@ -130,7 +155,11 @@ export class PomodoroPanel {
             this.handleCreateTask(message.task, message.requestId);
             break;
           case 'updateTask':
-            this.handleUpdateTask(message.taskId, message.updates, message.requestId);
+            this.handleUpdateTask(
+              message.taskId,
+              message.updates,
+              message.requestId
+            );
             break;
           case 'completeTask':
             this.handleCompleteTask(message.taskId, message.requestId);
@@ -150,6 +179,9 @@ export class PomodoroPanel {
           case 'clearCompletedTasks':
             this.handleClearCompletedTasks();
             break;
+          case 'refreshStatusBar':
+            this.handleRefreshStatusBar();
+            break;
         }
       },
       null,
@@ -159,8 +191,6 @@ export class PomodoroPanel {
 
   private async handleSettingsUpdate(settings: any): Promise<void> {
     try {
-      console.log('PomodoroPanel: Handling settings update', settings);
-
       // Check if timer is active before allowing settings update
       const isTimerActive = await vscode.commands.executeCommand(
         'pomodoro.isTimerActive'
@@ -192,13 +222,16 @@ export class PomodoroPanel {
     }
   }
 
-  private async handleCreateTask(taskData: {
-    title: string;
-    description?: string;
-    estimatedPomodoros?: number;
-    estimatedMinutes?: number;
-    priority?: 'low' | 'medium' | 'high';
-  }, requestId?: string): Promise<void> {
+  private async handleCreateTask(
+    taskData: {
+      title: string;
+      description?: string;
+      estimatedPomodoros?: number;
+      estimatedMinutes?: number;
+      priority?: 'low' | 'medium' | 'high';
+    },
+    requestId?: string
+  ): Promise<void> {
     try {
       const newTask = await this.todoManager.createTask(
         taskData.title,
@@ -207,24 +240,23 @@ export class PomodoroPanel {
         taskData.estimatedMinutes,
         taskData.priority
       );
-      
+
       // Send targeted response
       if (requestId) {
         this.sendAjaxResponse(requestId, true, { task: newTask });
       }
-      
+
       // Send targeted event to all listeners
       const currentTaskId = this.todoManager.getTodoState().currentTaskId;
       this.panel.webview.postMessage({
         command: 'taskCreated',
         task: newTask,
-        currentTaskId
+        currentTaskId,
       });
-      
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to create task';
-      
+
       if (requestId) {
         this.sendAjaxResponse(requestId, false, null, errorMessage);
       } else {
@@ -240,22 +272,21 @@ export class PomodoroPanel {
   ): Promise<void> {
     try {
       const updatedTask = await this.todoManager.updateTask(taskId, updates);
-      
+
       if (requestId) {
         this.sendAjaxResponse(requestId, true, { task: updatedTask });
       }
-      
+
       const currentTaskId = this.todoManager.getTodoState().currentTaskId;
       this.panel.webview.postMessage({
         command: 'taskUpdated',
         task: updatedTask,
-        currentTaskId
+        currentTaskId,
       });
-      
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to update task';
-      
+
       if (requestId) {
         this.sendAjaxResponse(requestId, false, null, errorMessage);
       } else {
@@ -264,25 +295,44 @@ export class PomodoroPanel {
     }
   }
 
-  private async handleCompleteTask(taskId: string, requestId?: string): Promise<void> {
+  private async handleCompleteTask(
+    taskId: string,
+    requestId?: string
+  ): Promise<void> {
     try {
       const completedTask = await this.todoManager.completeTask(taskId);
-      
+
       if (requestId) {
         this.sendAjaxResponse(requestId, true, { task: completedTask });
       }
-      
+
       const currentTaskId = this.todoManager.getTodoState().currentTaskId;
       this.panel.webview.postMessage({
         command: 'taskUpdated',
         task: completedTask,
-        currentTaskId
+        currentTaskId,
       });
-      
+
+      // Check if all tasks are completed and show notification
+      const todoState = this.todoManager.getTodoState();
+      const completedTasks = todoState.tasks.filter((task) => task.completed);
+
+      if (completedTasks.length >= 2) {
+        vscode.window
+          .showInformationMessage(
+            '🎉 Congratulations! All tasks completed!',
+            'Delete All Completed Tasks'
+          )
+          .then((selection) => {
+            if (selection === 'Delete All Completed Tasks') {
+              this.handleClearCompletedTasks();
+            }
+          });
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to complete task';
-      
+
       if (requestId) {
         this.sendAjaxResponse(requestId, false, null, errorMessage);
       } else {
@@ -291,30 +341,28 @@ export class PomodoroPanel {
     }
   }
 
-  private async handleDeleteTask(taskId: string, requestId?: string): Promise<void> {
-    console.log('[PomodoroPanel] handleDeleteTask called with:', { taskId, requestId });
+  private async handleDeleteTask(
+    taskId: string,
+    requestId?: string
+  ): Promise<void> {
     try {
-      console.log('[PomodoroPanel] Calling todoManager.deleteTask for:', taskId);
       await this.todoManager.deleteTask(taskId);
-      console.log('[PomodoroPanel] Task deleted successfully:', taskId);
-      
+
       if (requestId) {
-        console.log('[PomodoroPanel] Sending success response for requestId:', requestId);
         this.sendAjaxResponse(requestId, true, { taskId });
       }
-      
+
       const todoState = this.todoManager.getTodoState();
       this.panel.webview.postMessage({
         command: 'taskDeleted',
         taskId,
         currentTaskId: todoState.currentTaskId,
-        tasks: todoState.tasks
+        tasks: todoState.tasks,
       });
-      
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to delete task';
-      
+
       if (requestId) {
         this.sendAjaxResponse(requestId, false, null, errorMessage);
       } else {
@@ -323,25 +371,30 @@ export class PomodoroPanel {
     }
   }
 
-  private async handleSetCurrentTask(taskId: string, requestId?: string): Promise<void> {
+  private async handleSetCurrentTask(
+    taskId: string,
+    requestId?: string
+  ): Promise<void> {
     try {
       await this.todoManager.setCurrentTask(taskId);
-      
+
       if (requestId) {
         this.sendAjaxResponse(requestId, true, { taskId });
       }
-      
+
+      // Immediately update status bar
+      vscode.commands.executeCommand('pomodoro.refreshStatusBar');
+
       const todoState = this.todoManager.getTodoState();
       this.panel.webview.postMessage({
         command: 'taskSelected',
         taskId,
-        tasks: todoState.tasks
+        tasks: todoState.tasks,
       });
-      
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to set current task';
-      
+
       if (requestId) {
         this.sendAjaxResponse(requestId, false, null, errorMessage);
       } else {
@@ -353,21 +406,23 @@ export class PomodoroPanel {
   private async handleClearCurrentTask(requestId?: string): Promise<void> {
     try {
       await this.todoManager.clearCurrentTask();
-      
+
       if (requestId) {
         this.sendAjaxResponse(requestId, true, { taskId: null });
       }
-      
+
+      // Immediate status bar refresh
+      vscode.commands.executeCommand('pomodoro.refreshStatusBar');
+
       this.panel.webview.postMessage({
         command: 'taskSelected',
         taskId: null,
-        tasks: this.todoManager.getTodoState().tasks
+        tasks: this.todoManager.getTodoState().tasks,
       });
-      
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to clear current task';
-      
+
       if (requestId) {
         this.sendAjaxResponse(requestId, false, null, errorMessage);
       } else {
@@ -399,7 +454,15 @@ export class PomodoroPanel {
   private async handleClearCompletedTasks(): Promise<void> {
     try {
       await this.todoManager.clearCompletedTasks();
-      this.sendTodoUpdate();
+      const todoState = this.todoManager.getTodoState();
+
+      this.panel.webview.postMessage({
+        command: 'tasksCleared',
+        type: 'completed',
+        todoState: todoState,
+      });
+
+      vscode.commands.executeCommand('pomodoro.refreshStatusBar');
       vscode.window.showInformationMessage('Completed tasks cleared');
     } catch (error) {
       const errorMessage =
@@ -408,6 +471,11 @@ export class PomodoroPanel {
           : 'Failed to clear completed tasks';
       vscode.window.showErrorMessage(errorMessage);
     }
+  }
+
+  private handleRefreshStatusBar(): void {
+    // Trigger status bar refresh by emitting a session event
+    vscode.commands.executeCommand('pomodoro.refreshStatusBar');
   }
 
   private sendTodoUpdate(): void {
@@ -420,22 +488,25 @@ export class PomodoroPanel {
     }
   }
 
-  private sendAjaxResponse(requestId: string, success: boolean, data: any = null, error?: string): void {
+  private sendAjaxResponse(
+    requestId: string,
+    success: boolean,
+    data: any = null,
+    error?: string
+  ): void {
     if (this.panel.webview) {
       this.panel.webview.postMessage({
         requestId,
         success,
         data,
-        error
+        error,
       });
     }
   }
 
   public updateSession(session: PomodoroSession): void {
     this.currentSession = session;
-    this.update();
 
-    // Send session data to webview for real-time updates (WITHOUT todoState to prevent re-renders)
     if (this.panel.webview && !this.isSettingsView) {
       this.panel.webview.postMessage({
         command: 'updateSession',
@@ -443,7 +514,6 @@ export class PomodoroPanel {
         isTimerActive:
           session.state !== PomodoroState.IDLE &&
           session.state !== PomodoroState.PAUSED,
-        // todoState removed - now handled by targeted AJAX events
       });
     }
   }
@@ -472,7 +542,7 @@ export class PomodoroPanel {
         }
       }
     }
-    
+
     // Clear references to prevent memory leaks
     this.currentSession = null;
     this.disposables = [];
@@ -566,12 +636,14 @@ export class PomodoroPanel {
     const template = fs.readFileSync(templatePath, 'utf8');
     const styleUri = this.getStyleUri(this.panel.webview, 'settings');
     const globalStyleUri = this.getGlobalStyleUri(this.panel.webview);
+    const scriptUri = this.getScriptUri(this.panel.webview, 'settings');
 
     return ejs.render(template, {
       settings,
       isTimerActive,
       styleUri: styleUri.toString(),
       globalStyleUri: globalStyleUri.toString(),
+      scriptUri: scriptUri.toString(),
     });
   }
 

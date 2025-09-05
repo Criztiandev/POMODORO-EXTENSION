@@ -38,7 +38,7 @@ export class StatusBarManager {
     });
   }
 
-  updateStatusBar(session: PomodoroSession): void {
+  updateStatusBar(session: PomodoroSession, currentTaskTitle?: string): void {
     const minutes = Math.floor(session.timeRemaining / 60000);
     const seconds = Math.floor((session.timeRemaining % 60000) / 1000);
     const timeString = `${minutes.toString().padStart(2, '0')}:${seconds
@@ -48,8 +48,6 @@ export class StatusBarManager {
     let icon = '🍅';
     let sessionName = '';
     let tooltip = 'Click to start timer';
-
-    console.log(session);
 
     switch (session.state) {
       case PomodoroState.WORK:
@@ -79,10 +77,11 @@ export class StatusBarManager {
         break;
     }
 
-    const fullText = `${icon} ${sessionName} ${timeString} - Ticket 0003`;
+    const taskInfo = currentTaskTitle || 'No task selected';
+    const fullText = `${icon} ${sessionName} ${timeString} - ${taskInfo}`;
     this.mainStatusBarItem.text =
-      fullText.length > 30 ? fullText.substring(0, 27) + '...' : fullText;
-    this.mainStatusBarItem.tooltip = `${tooltip} | Completed: ${session.completedPomodoros}`;
+      fullText.length > 40 ? fullText.substring(0, 37) + '...' : fullText;
+    this.mainStatusBarItem.tooltip = `${tooltip} | Completed: ${session.completedPomodoros}${currentTaskTitle ? ` | Task: ${currentTaskTitle}` : ''}`;
   }
 
   dispose(): void {

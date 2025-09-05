@@ -1,4 +1,4 @@
-@import '../global.css';
+@import '../../shared/global.css';
 
 .container {
   max-width: 500px;
@@ -20,6 +20,10 @@
   padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .settings-btn:hover {
@@ -70,7 +74,7 @@
   background: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
   border: none;
-  padding: 12px 24px;
+  padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 16px;
@@ -115,7 +119,7 @@
 .current-task {
   background: var(--vscode-editor-background);
   border-left: 3px solid var(--vscode-focusBorder);
-  padding: var(--spacing);
+  padding: 8px 16px;
   margin-bottom: var(--spacing);
 }
 
@@ -132,14 +136,15 @@
 }
 
 .create-task-btn {
+  font-family: 'Poppins', var(--vscode-font-family);
   background: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
   border: var(--border);
-  padding: var(--spacing);
+  padding: 8px 16px;
   cursor: pointer;
   width: 100%;
   margin-bottom: var(--spacing);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: bold;
 
   padding: 12px 16px;
@@ -298,7 +303,7 @@
   border: none;
   color: var(--vscode-descriptionForeground);
   cursor: pointer;
-  padding: 2px;
+  padding: 8px 16px;
   margin-left: 4px;
   font-size: 12px;
 }
@@ -396,18 +401,19 @@
   display: block;
   margin-bottom: 4px;
   color: var(--vscode-foreground);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .form-input {
   width: 100%;
-  padding: var(--spacing);
+  padding: 8px 16px;
   border: var(--border);
   background: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   font-family: var(--vscode-font-family);
   font-size: 14px;
   box-sizing: border-box;
+  border-radius: 4px;
 }
 
 .form-input:focus {
@@ -430,12 +436,17 @@
 }
 
 .btn-primary {
+  font-family: 'Poppins', var(--vscode-font-family);
   background: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
   border: none;
-  padding: var(--spacing);
+  padding: 8px 16px;
   cursor: pointer;
   font-size: 14px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .btn-primary:hover {
@@ -443,12 +454,17 @@
 }
 
 .btn-secondary {
+  font-family: 'Poppins', var(--vscode-font-family);
   background: var(--vscode-button-secondaryBackground);
   color: var(--vscode-button-secondaryForeground);
   border: var(--border);
-  padding: var(--spacing);
+  padding: 8px 16px;
   cursor: pointer;
   font-size: 14px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .btn-secondary:hover {
@@ -458,6 +474,9 @@
 /* Specific button overrides - letting individual button classes handle styling */
 .tab {
   font-family: 'Poppins', var(--vscode-font-family);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .control-btn {
@@ -475,6 +494,6 @@
 
 .task-action-btn {
   font-family: 'Poppins', var(--vscode-font-family);
-  padding: 4px 6px !important;
+  padding: 8px 16px;
   border-radius: 4px;
 }

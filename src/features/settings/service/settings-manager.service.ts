@@ -54,23 +54,19 @@ export class SettingsManager {
 
   static async updateSettings(settings: Partial<PomodoroSettings>): Promise<void> {
     try {
-      console.log('SettingsManager: Updating settings', settings);
 
       const validation = this.validateSettings(settings);
       if (!validation.isValid) {
         const errorMessage = `Invalid settings: ${validation.errors.join(', ')}`;
-        console.error('SettingsManager: Validation failed', errorMessage);
         throw new Error(errorMessage);
       }
 
       const config = vscode.workspace.getConfiguration(this.SETTINGS_KEY);
       
       for (const [key, value] of Object.entries(settings)) {
-        console.log(`SettingsManager: Setting ${key} = ${value}`);
         await config.update(key, value, vscode.ConfigurationTarget.Global);
       }
 
-      console.log('SettingsManager: Settings updated successfully');
     } catch (error) {
       console.error('SettingsManager: Failed to update settings', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
