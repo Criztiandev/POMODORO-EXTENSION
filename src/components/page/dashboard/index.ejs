@@ -54,7 +54,7 @@
           <div class="task-main" style="display: flex; gap: 16px;">
 
             <label class="circle-checkbox-container">
-              <input type="checkbox" class="task-checkbox hidden-checkbox" <%= task.completed ? 'checked' : '' %> onchange="toggleTask('<%= task.id %>', this.checked)">
+              <input type="checkbox" class=" hidden-checkbox" <%= task.completed ? 'checked' : '' %> onchange="toggleTask('<%= task.id %>', this.checked)">
               <span class="checkmark"></span>
             </label>
 
@@ -62,6 +62,11 @@
               <div class="task-title <%= task.completed ? 'completed' : '' %>">
                 <%= task.title %>
               </div>
+              <% if (task.description) { %>
+              <div class="task-description" style="font-weight: 400;">
+                <%= task.description %>
+              </div>
+              <% } %>
               <% if (task.estimatedPomodoros || task.estimatedMinutes) { %>
               <div class="task-meta">
                 <% if (task.estimatedPomodoros) { %>

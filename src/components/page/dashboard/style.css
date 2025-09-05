@@ -48,7 +48,6 @@
   color: var(--vscode-descriptionForeground);
   font-size: 14px;
   border-bottom: 2px solid transparent;
-  transition: all 0.2s;
 }
 
 .tab.active {
@@ -107,7 +106,7 @@
 
 /* Ultra-Minimal Todo List */
 .todo-section {
-  margin-top: '32px';
+  margin-top: 32px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -165,20 +164,18 @@
 }
 
 .task-item {
-  display: flex;
-  align-items: center;
-  padding: var(--spacing);
-  border: var(--border);
-  margin-bottom: 1px;
-  cursor: pointer;
   background: var(--vscode-editor-background);
-  transition: all var(--duration-fast) var(--easing);
-  padding: 12px 24px;
-  border-radius: 4px;
-  border: 1px solid var(--vscode-panel-border);
+  cursor: pointer;
+
   display: flex;
   justify-content: space-between;
   align-items: center;
+
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+
+  margin-bottom: 1px;
+  padding: 12px 24px;
 }
 
 .task-item:hover {
@@ -197,7 +194,7 @@
 
 .task-main {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
 }
 
@@ -209,34 +206,35 @@
   width: 0;
 }
 
-.hidden-checkbox:checked ~ .checkmark {
-  background-color: #2196f3; /* Background color when checked */
-  border-color: #2196f3; /* Border color when checked */
+.circle-checkbox-container .hidden-checkbox:checked ~ .checkmark {
+  background-color: var(--vscode-focusBorder, #2196f3) !important;
+  border-color: var(--vscode-focusBorder, #2196f3) !important;
 }
 
-.hidden-checkbox:checked ~ .checkmark:after {
+.circle-checkbox-container .hidden-checkbox:checked ~ .checkmark:after {
   display: block;
 }
 
-.checkmark {
+.circle-checkbox-container .checkmark {
   position: relative;
   display: inline-block;
-  width: 20px; /* Adjust size as needed */
-  height: 20px; /* Adjust size as needed */
-  border-radius: 50%; /* Makes it a circle */
-  background-color: #eee; /* Default background color */
-  border: 2px solid #ccc; /* Optional border */
-  vertical-align: middle; /* Align with text */
-  margin-right: 8px; /* Space between checkbox and label text */
-}
-
-.checkmark:after {
-  content: '';
-  position: absolute;
-  display: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: var(--vscode-input-background, #eee);
+  border: 2px solid var(--vscode-panel-border, #ccc);
+  vertical-align: middle;
+  margin-right: 8px;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .circle-checkbox-container .checkmark:after {
+  content: '';
+  position: absolute;
+  display: none;
   left: 6px; /* Adjust position */
   top: 2px; /* Adjust position */
   width: 5px;
@@ -249,6 +247,12 @@
 .task-content {
   flex: 1;
   min-width: 0;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  text-align: left;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .task-title {
@@ -258,9 +262,14 @@
   color: var(--vscode-foreground);
 }
 
+.task-description {
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground);
+}
+
 .task-title.completed {
   text-decoration: line-through;
-  color: var(--vscode-descriptionForeground);
+  font-weight: 300;
 }
 
 .task-meta {

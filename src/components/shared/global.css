@@ -119,7 +119,6 @@ a:hover {
 button {
   font-family: 'Poppins', var(--vscode-font-family);
   cursor: pointer;
-  transition: all 0.2s ease;
   border: none;
   outline: none;
   padding: 16px;
